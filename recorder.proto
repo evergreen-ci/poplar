@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package poplar;
+option go_package = "internal";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+message RecorderID {
+  string name = 1;   
+}
+
+message RecorderInfo {
+  string name = 1;
+  string path = 2; 
+}
+
+message EventSendTime {
+  string name = 1; 
+  google.protobuf.Timestamp time = 2;
+}
+
+message EventSendInt {
+  string name = 1; 
+  int64 value = 2;
+}
+
+message EventSendBool {
+  string name = 1; 
+  bool value = 2;
+}
+
+message EventSendDuration {
+  string name = 1; 
+  google.protobuf.Duration time = 2;
+}
+
+message EventResponse {
+  string name = 1; 
+  bool status = 2;
+}
+
+service PoplarMetricsRecorder {
+  rpc CreateRecorder(RecorderID) returns (RecorderInfo);
+  rpc CloseRecorder(RecorderID) returns (RecorderInfo);
+
+  // Event Lifecycle methods
+  rpc BeginEvent(RecorderID) returns (EventResponse);
+  rpc ResetRecorder(RecorderID) returns (EventResponse);
+  rpc SetTime(EventSendTime) returns (EventResponse);
+  rpc Record(EventSendDuratio) returns (EventResponse);
+
+  // Guages
+  rpc SetState(EventSendInt) returns (EventResponse);
+  rpc SetWorkers(EventSendInt) returns (EventResponse);
+  rpc SetBool(EventSendBool) returns (EventResponse);
+
+  // Counters
+  rpc IncOps(EventSendInt) returns (EventResponse);
+  rpc IncSize(EventSendInt) returns (EventResponse);
+  rpc IncError(EventSendInt) returns (EventResponse);
+}
