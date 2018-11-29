@@ -47,11 +47,12 @@ service PoplarMetricsRecorder {
   // Event Lifecycle methods
   rpc BeginEvent(RecorderID) returns (EventResponse);
   rpc ResetRecorder(RecorderID) returns (EventResponse);
-  rpc Record(EventSendDuration) returns (EventResponse);
+  rpc End(EventSendDuration) returns (EventResponse);
 
   // Timers
   rpc SetTime(EventSendTime) returns (EventResponse);
   rpc SetDuration(EventSendDuration) returns (EventResponse);
+  rpc SetTotalDuration(EventSendDuration) returns (EventResponse);
 
   // Guages
   rpc SetState(EventSendInt) returns (EventResponse);
@@ -62,4 +63,5 @@ service PoplarMetricsRecorder {
   rpc IncOps(EventSendInt) returns (EventResponse);
   rpc IncSize(EventSendInt) returns (EventResponse);
   rpc IncError(EventSendInt) returns (EventResponse);
+  rpc IncIterations(EventSendInt) returns (EventResponse);
 }
