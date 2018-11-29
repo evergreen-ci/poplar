@@ -38,6 +38,7 @@ type recorderInstance struct {
 	file      io.WriteCloser
 	collector ftdc.Collector
 	recorder  events.Recorder
+	isDynamic bool
 }
 
 type RecorderRegistry struct {
@@ -45,13 +46,18 @@ type RecorderRegistry struct {
 	mu    sync.Mutex
 }
 
-func (r *RecorderRegistry) Create(key string, flavor RecorderType, collOpts CollectorCreationOptions) (events.Recorder, error) {
-	var out events.Recorder
-
-	if err := flavor.Validate(); err != nil {
-		return nil, errors.Wrap(err, "could not build recorder")
+func NewRegistry() *RecorderRegistry {
+	return &RecorderRegistry{
+		cache: map[string]*recorderInstance{},
 	}
+}
 
+// Create builds a new collector, of the given name with the specified
+// options controling the collector type and configuration.
+//
+// If the options specify a filename that already exists, then Create
+// will return an error.
+func (r *RecorderRegistry) Create(key string, collOpts CollectorCreationOptions) (events.Recorder, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -70,16 +76,39 @@ func (r *RecorderRegistry) Create(key string, flavor RecorderType, collOpts Coll
 	return instance.recorder, nil
 }
 
-func (r *RecorderRegistry) Get(key string) (events.Recorder, bool) {
+// GetRecorder returns the Recorder instance for this key. Returns
+// false when the recorder does not exist.
+func (r *RecorderRegistry) GetRecorder(key string) (events.Recorder, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	impl, ok := r.mu[key]
+	impl, ok := r.cache[key]
+	if !ok {
+		return nil, false
+	}
 
-	return impl.recorder, ok
+	return impl.recorder, true
 }
 
-func (r *RecorderRegistry) Drop(key string) error {
+// GetCollector returns the collector instance for this key. Will
+// return false, when the collector does not exist OR if the collector
+// is dynamic.
+func (r *RecorderRegistry) GetCollector(key string) (ftdc.Collector, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	impl, ok := r.cache[key]
+
+	if !ok || !impl.isDynamic {
+		return nil, false
+	}
+
+	return impl.collector, true
+}
+
+// Close flushes and closes the underlying recorder and collector and
+// then removes it from the cache.
+func (r *RecorderRegistry) Close(key string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -121,43 +150,41 @@ func (opts *CollectorCreationOptions) build() (*recorderInstance, error) {
 		return nil, errors.Wrapf(err, "problem opening file '%s'", opts.Path)
 	}
 
-	var collector ftdc.Collector
+	out := &recorderInstance{
+		isDynamic: opts.Dynamic,
+	}
+
 	switch {
 	case opts.Streaming && opts.Dynamic:
-		collector = ftdc.NewStreamingDynamicCollector(opts.ChunkSize, file)
+		out.collector = ftdc.NewStreamingDynamicCollector(opts.ChunkSize, file)
 	case !opts.Streaming && opts.Dynamic:
-		collector = ftdc.NewDynamicCollector(opts.ChunkSize)
+		out.collector = ftdc.NewDynamicCollector(opts.ChunkSize)
 	case opts.Streaming && !opts.Dynamic:
-		collector = ftdc.NewStreamingCollector(opts.ChunkSize, file)
+		out.collector = ftdc.NewStreamingCollector(opts.ChunkSize, file)
 	case !opts.Streaming && !opts.Dynamic:
-		collector = ftdc.NewBatchCollector(opts.ChunkSize)
+		out.collector = ftdc.NewBatchCollector(opts.ChunkSize)
 	default:
 		return nil, errors.New("invalid collector defined")
 	}
 
-	var recorder events.Recorder
-	switch {
+	switch opts.Recorder {
 	case RecorderPerf:
-		recorder = events.NewRawRecorder(collector)
+		out.recorder = events.NewRawRecorder(out.collector)
 	case RecorderPerfSingle:
-		recorder = events.NewSingleRecorder(collector)
+		out.recorder = events.NewSingleRecorder(out.collector)
 	case RecorderPerf100ms:
-		recorder = events.NewGroupedRecorder(collector, 100*time.Millisecond)
+		out.recorder = events.NewGroupedRecorder(out.collector, 100*time.Millisecond)
 	case RecorderPerf1s:
-		recorder = events.NewGroupedRecorder(collector, time.Second)
+		out.recorder = events.NewGroupedRecorder(out.collector, time.Second)
 	case RecorderHistogramSingle:
-		recorder = events.NewSingleHistogramRecorder(collector)
+		out.recorder = events.NewSingleHistogramRecorder(out.collector)
 	case RecorderHistogram100ms:
-		recorder = events.NewHistogramGroupedRecorder(collector, 100*time.Millisecond)
+		out.recorder = events.NewHistogramGroupedRecorder(out.collector, 100*time.Millisecond)
 	case RecorderHistogram1s:
-		recorder = events.NewHistogramGroupedRecorder(collector, time.Second)
+		out.recorder = events.NewHistogramGroupedRecorder(out.collector, time.Second)
 	default:
 		return nil, errors.New("invalid recorder defined")
 	}
 
-	return &recorderInstance{
-		file:      file,
-		collector: collector,
-		recorder:  recorder,
-	}, nil
+	return out, nil
 }

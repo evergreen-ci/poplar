@@ -7,36 +7,36 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 
 message RecorderID {
-  string name = 1;   
+  string name = 1;
 }
 
 message RecorderInfo {
   string name = 1;
-  string path = 2; 
+  string path = 2;
 }
 
 message EventSendTime {
-  string name = 1; 
+  string name = 1;
   google.protobuf.Timestamp time = 2;
 }
 
 message EventSendInt {
-  string name = 1; 
+  string name = 1;
   int64 value = 2;
 }
 
 message EventSendBool {
-  string name = 1; 
+  string name = 1;
   bool value = 2;
 }
 
 message EventSendDuration {
-  string name = 1; 
+  string name = 1;
   google.protobuf.Duration time = 2;
 }
 
 message EventResponse {
-  string name = 1; 
+  string name = 1;
   bool status = 2;
 }
 
@@ -47,8 +47,11 @@ service PoplarMetricsRecorder {
   // Event Lifecycle methods
   rpc BeginEvent(RecorderID) returns (EventResponse);
   rpc ResetRecorder(RecorderID) returns (EventResponse);
+  rpc Record(EventSendDuration) returns (EventResponse);
+
+  // Timers
   rpc SetTime(EventSendTime) returns (EventResponse);
-  rpc Record(EventSendDuratio) returns (EventResponse);
+  rpc SetDuration(EventSendDuration) returns (EventResponse);
 
   // Guages
   rpc SetState(EventSendInt) returns (EventResponse);
