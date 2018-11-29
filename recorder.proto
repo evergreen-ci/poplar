@@ -41,13 +41,16 @@ message EventResponse {
 }
 
 service PoplarMetricsRecorder {
+  // Create builds a new recorder instance which creates a local file,
+  // while the close recorder method flushes the contents of that
+  // recorder and closes the file.
   rpc CreateRecorder(RecorderID) returns (RecorderInfo);
   rpc CloseRecorder(RecorderID) returns (RecorderInfo);
 
   // Event Lifecycle methods
   rpc BeginEvent(RecorderID) returns (EventResponse);
-  rpc ResetRecorder(RecorderID) returns (EventResponse);
-  rpc End(EventSendDuration) returns (EventResponse);
+  rpc ResetEvent(RecorderID) returns (EventResponse);
+  rpc EndEvent(EventSendDuration) returns (EventResponse);
 
   // Timers
   rpc SetTime(EventSendTime) returns (EventResponse);
