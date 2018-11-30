@@ -21,12 +21,13 @@ const (
 	RecorderHistogramSingle              = "histogram-single"
 	RecorderHistogram100ms               = "histogram-grouped-100ms"
 	RecorderHistogram1s                  = "histogram-grouped-1s"
+	CustomMetrics                        = "custom"
 )
 
 func (t RecorderType) Validate() error {
 	switch t {
 	case RecorderPerf, RecorderPerfSingle, RecorderPerf100ms, RecorderPerf1s,
-		RecorderHistogramSingle, RecorderHistogram100ms, RecorderHistogram1s:
+		RecorderHistogramSingle, RecorderHistogram100ms, RecorderHistogram1s, CustomMetrics:
 
 		return nil
 	default:
@@ -38,7 +39,45 @@ type recorderInstance struct {
 	file      io.WriteCloser
 	collector ftdc.Collector
 	recorder  events.Recorder
+	tracker   *customEventTracker
 	isDynamic bool
+	isCustom  bool
+}
+
+type customEventTracker struct {
+	events.Custom
+	sync.Mutex
+}
+
+func (c *customEventTracker) Add(key string, value interface{}) error {
+	if c == nil {
+		return errors.New("tracker is not populated")
+	}
+
+	c.Lock()
+	defer c.Unlock()
+
+	return errors.WithStack(c.Custom.Add(key, value))
+}
+
+func (c *customEventTracker) Reset() {
+	c.Lock()
+	defer c.Unlock()
+
+	c.Custom = events.MakeCustom(cap(c.Custom))
+}
+
+func (c *customEventTracker) Dump() events.Custom {
+	c.Lock()
+	defer c.Unlock()
+
+	return c.Custom
+}
+
+type CustomMetricsCollector interface {
+	Add(string, interface{}) error
+	Dump() events.Custom
+	Reset()
 }
 
 type RecorderRegistry struct {
@@ -90,6 +129,22 @@ func (r *RecorderRegistry) GetRecorder(key string) (events.Recorder, bool) {
 	return impl.recorder, true
 }
 
+func (r *RecorderRegistry) GetCustomCollector(key string) (CustomMetricsCollector, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	impl, ok := r.cache[key]
+	if !ok {
+		return nil, false
+	}
+
+	if !impl.isCustom || impl.tracker == nil {
+		return nil, false
+	}
+
+	return impl.tracker, true
+}
+
 // GetCollector returns the collector instance for this key. Will
 // return false, when the collector does not exist OR if the collector
 // is dynamic.
@@ -113,9 +168,16 @@ func (r *RecorderRegistry) Close(key string) error {
 	defer r.mu.Unlock()
 
 	if impl, ok := r.cache[key]; ok {
-		if err := impl.recorder.Flush(); err != nil {
-			return errors.Wrap(err, "problem flushing recorder")
+		if impl.isCustom {
+			if err := impl.collector.Add(impl.tracker.Custom); err != nil {
+				return errors.Wrap(err, "problem flushing interval summarizations")
+			}
+		} else {
+			if err := impl.recorder.Flush(); err != nil {
+				return errors.Wrap(err, "problem flushing recorder")
+			}
 		}
+
 		if err := ftdc.FlushCollector(impl.collector, impl.file); err != nil {
 			return errors.Wrap(err, "problem writing collector contents to file")
 		}
@@ -139,6 +201,10 @@ type CreateOptions struct {
 func (opts *CreateOptions) build() (*recorderInstance, error) {
 	if err := opts.Recorder.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid recorder type")
+	}
+
+	if opts.Recorder == CustomMetrics && !opts.Dynamic {
+		return nil, errors.New("cannot use the custom metrics collector with a non-dynamic collector")
 	}
 
 	if _, err := os.Stat(opts.Path); !os.IsNotExist(err) {
@@ -182,6 +248,9 @@ func (opts *CreateOptions) build() (*recorderInstance, error) {
 		out.recorder = events.NewHistogramGroupedRecorder(out.collector, 100*time.Millisecond)
 	case RecorderHistogram1s:
 		out.recorder = events.NewHistogramGroupedRecorder(out.collector, time.Second)
+	case CustomMetrics:
+		out.isCustom = true
+		out.tracker = &customEventTracker{Custom: events.MakeCustom(128)}
 	default:
 		return nil, errors.New("invalid recorder defined")
 	}

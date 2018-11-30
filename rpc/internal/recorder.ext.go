@@ -18,6 +18,8 @@ func (rt CreateOptions_RecorderType) Export() poplar.RecorderType {
 		return poplar.RecorderHistogram100ms
 	case CreateOptions_HISTOGRAM_1S:
 		return poplar.RecorderHistogram1s
+	case CreateOptions_INTERVAL_SUMMARIZATION:
+		return poplar.CustomMetrics
 	default:
 		return ""
 	}

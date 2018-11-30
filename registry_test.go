@@ -94,7 +94,7 @@ func TestRegistry(t *testing.T) {
 	})
 	t.Run("CreateFailures", func(t *testing.T) {
 		reg := NewRegistry()
-		opts := CollectorCreationOptions{}
+		opts := CreateOptions{}
 
 		r, err := reg.Create("foo", opts)
 		assert.Error(t, err)
@@ -112,7 +112,7 @@ func TestRegistry(t *testing.T) {
 	})
 	t.Run("Create", func(t *testing.T) {
 		reg := NewRegistry()
-		opts := CollectorCreationOptions{
+		opts := CreateOptions{
 			Recorder: RecorderPerf,
 			Path:     filepath.Join(tmpdir, "bar"),
 		}
@@ -140,7 +140,7 @@ func TestRegistry(t *testing.T) {
 	})
 	t.Run("Collector", func(t *testing.T) {
 		reg := NewRegistry()
-		opts := CollectorCreationOptions{
+		opts := CreateOptions{
 			Recorder: RecorderPerfSingle,
 			Path:     filepath.Join(tmpdir, "baz"),
 		}
