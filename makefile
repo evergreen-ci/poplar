@@ -48,7 +48,7 @@ proto:
 	@mkdir -p rpc/internal
 	protoc --go_out=plugins=grpc:rpc/internal *.proto
 clean:
-1	rm -rf rpc/internal/*.pb.go
+	rm -rf rpc/internal/*.pb.go
 
 vendor-clean:
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/stretchr/testify/
