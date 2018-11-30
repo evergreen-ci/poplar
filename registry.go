@@ -57,7 +57,7 @@ func NewRegistry() *RecorderRegistry {
 //
 // If the options specify a filename that already exists, then Create
 // will return an error.
-func (r *RecorderRegistry) Create(key string, collOpts CollectorCreationOptions) (events.Recorder, error) {
+func (r *RecorderRegistry) Create(key string, collOpts CreateOptions) (events.Recorder, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -128,7 +128,7 @@ func (r *RecorderRegistry) Close(key string) error {
 	return nil
 }
 
-type CollectorCreationOptions struct {
+type CreateOptions struct {
 	Path      string
 	ChunkSize int
 	Streaming bool
@@ -136,7 +136,7 @@ type CollectorCreationOptions struct {
 	Recorder  RecorderType
 }
 
-func (opts *CollectorCreationOptions) build() (*recorderInstance, error) {
+func (opts *CreateOptions) build() (*recorderInstance, error) {
 	if err := opts.Recorder.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid recorder type")
 	}
