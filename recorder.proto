@@ -3,12 +3,9 @@ syntax = "proto3";
 package poplar;
 option go_package = "internal";
 
+import "poplar.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
-
-message RecorderID {
-  string name = 1;
-}
 
 message EventSendTime {
   string name = 1;
@@ -30,55 +27,31 @@ message EventSendDuration {
   google.protobuf.Duration duration = 2;
 }
 
-message EventResponse {
-  string name = 1;
-  bool status = 2;
-}
-
-message CreateOptions {
-  string name = 1;
-  string path = 2;
-  int32 chunkSize = 3;
-  bool streaming = 4;
-  bool dynamic = 5;
-  enum RecorderType {
-    UNKNOWN = 0;
-    PERF = 1;
-    PERF_SINGLE = 2;
-    PERF_100MS = 3;
-    PERF_1S = 4;
-    HISTOGRAM_SINGLE = 6;
-    HISTOGRAM_100MS = 7;
-    HISTOGRAM_1S = 8;
-  };
-  RecorderType recorder = 6;
-}
-
 service PoplarMetricsRecorder {
   // Create builds a new recorder instance which creates a local file,
   // while the close recorder method flushes the contents of that
   // recorder and closes the file.
-  rpc CreateRecorder(CreateOptions) returns (EventResponse);
-  rpc CloseRecorder(RecorderID) returns (EventResponse);
+  rpc CreateRecorder(CreateOptions) returns (PoplarResponse);
+  rpc CloseRecorder(PoplarID) returns (PoplarResponse);
 
   // Event Lifecycle methods
-  rpc BeginEvent(RecorderID) returns (EventResponse);
-  rpc ResetEvent(RecorderID) returns (EventResponse);
-  rpc EndEvent(EventSendDuration) returns (EventResponse);
+  rpc BeginEvent(PoplarID) returns (PoplarResponse);
+  rpc ResetEvent(PoplarID) returns (PoplarResponse);
+  rpc EndEvent(EventSendDuration) returns (PoplarResponse);
 
   // Timers
-  rpc SetTime(EventSendTime) returns (EventResponse);
-  rpc SetDuration(EventSendDuration) returns (EventResponse);
-  rpc SetTotalDuration(EventSendDuration) returns (EventResponse);
+  rpc SetTime(EventSendTime) returns (PoplarResponse);
+  rpc SetDuration(EventSendDuration) returns (PoplarResponse);
+  rpc SetTotalDuration(EventSendDuration) returns (PoplarResponse);
 
   // Guages
-  rpc SetState(EventSendInt) returns (EventResponse);
-  rpc SetWorkers(EventSendInt) returns (EventResponse);
-  rpc SetFailed(EventSendBool) returns (EventResponse);
+  rpc SetState(EventSendInt) returns (PoplarResponse);
+  rpc SetWorkers(EventSendInt) returns (PoplarResponse);
+  rpc SetFailed(EventSendBool) returns (PoplarResponse);
 
   // Counters
-  rpc IncOps(EventSendInt) returns (EventResponse);
-  rpc IncSize(EventSendInt) returns (EventResponse);
-  rpc IncError(EventSendInt) returns (EventResponse);
-  rpc IncIterations(EventSendInt) returns (EventResponse);
+  rpc IncOps(EventSendInt) returns (PoplarResponse);
+  rpc IncSize(EventSendInt) returns (PoplarResponse);
+  rpc IncError(EventSendInt) returns (PoplarResponse);
+  rpc IncIterations(EventSendInt) returns (PoplarResponse);
 }
