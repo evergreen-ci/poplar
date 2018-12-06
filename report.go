@@ -59,33 +59,16 @@ type TestArtifact struct {
 
 func (a *TestArtifact) Validate() error {
 	catcher := grip.NewBasicCatcher()
-	count := 0
-	for _, setting := range []bool{a.PayloadBSON, a.PayloadFTDC} {
-		if setting {
-			count++
-		}
-	}
-	if count != 1 {
+
+	if isMoreThanOneTrue([]bool{a.PayloadBSON, a.PayloadFTDC}) {
 		catcher.Add(errors.New("must specify exactly one payload type"))
 	}
 
-	count = 0
-	for _, setting := range []bool{a.DataGzipped, a.DataTarball, a.DataUncompressed} {
-		if setting {
-			count++
-		}
-	}
-	if count != 1 {
+	if isMoreThanOneTrue([]bool{a.DataGzipped, a.DataTarball, a.DataUncompressed}) {
 		catcher.Add(errors.New("must specify exactly one file format type"))
 	}
 
-	count = 0
-	for _, setting := range []bool{a.EventsCollapsed, a.EventsHistogram, a.EventsIntervalSummary, a.EventsRaw} {
-		if setting {
-			count++
-		}
-	}
-	if count != 1 {
+	if isMoreThanOneTrue([]bool{a.EventsCollapsed, a.EventsHistogram, a.EventsIntervalSummary, a.EventsRaw}) {
 		catcher.Add(errors.New("must specify exactly one event format type"))
 	}
 
