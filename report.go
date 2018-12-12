@@ -3,6 +3,7 @@ package poplar
 import (
 	"time"
 
+	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
@@ -18,6 +19,8 @@ type Report struct {
 	TaskName  string `bson:"task_name" json:"task_name" yaml:"task_name"`
 	TaskID    string `bson:"task_id" json:"task_id" yaml:"task_id"`
 	Execution int    `bson:"execution_number" json:"execution_number" yaml:"execution_number"`
+
+	BucketConf BucketConfiguration `bson:"bucket" json:"bucket" yaml:"bucket"`
 
 	// Tests holds all of the test data.
 	Tests []Test `bson:"tests" json:"tests" yaml:"tests"`
@@ -101,4 +104,15 @@ type TestMetrics struct {
 	Version int         `bson:"version,omitempty" json:"version,omitempty" yaml:"version,omitempty"`
 	Type    string      `bson:"type" json:"type" yaml:"type"`
 	Value   interface{} `bson:"value" json:"value" yaml:"value"`
+}
+
+type BucketConfiguration struct {
+	APIKey    string `bson:"api_key" json:"api_key" yaml:"api_key"`
+	APISecret string `bson:"api_secret" json:"api_secret" yaml:"api_secret"`
+	APIToken  string `bson:"api_token" json:"api_token" yaml:"api_token"`
+	Region    string `bson:"region" json:"region" yaml:"region"`
+	Name      string `bson:"name" json:"name" yaml:"name"`
+	Prefix    string `bson:"prefix" json:"prefix" yaml:"prefix"`
+
+	bucket pail.Bucket
 }

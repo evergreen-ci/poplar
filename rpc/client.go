@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"path/filepath"
 
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
@@ -23,19 +24,24 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 			"total":  len(tests),
 			"parent": test.Info.Parent != "",
 			"name":   test.Info.TestName,
-			"task":   report.Info.TaskID,
+			"task":   report.TaskID,
 		})
 		artifacts := make([]*internal.ArtifactInfo, 0, len(test.Artifacts))
 		for _, a := range test.Artifacts {
 			artifacts = append(artifacts, internal.ExportArtifactInfo(&a))
 			if a.LocalFile != "" {
+				if a.Path == "" {
+					a.Path = filepath.Join(test.ID, filepath.Base(a.LocalFile))
+				}
+
 				grip.Info(message.Fields{
 					"op":     "uploading file",
 					"path":   a.Path,
 					"bucket": a.Bucket,
 					"file":   a.LocalFile,
 				})
-				if err := a.Upload(); err != nil {
+
+				if err := a.Upload(ctx, report.BucketConf); err != nil {
 					return errors.Wrap(err, "problem uploading artifact")
 				}
 			}
