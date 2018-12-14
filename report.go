@@ -61,6 +61,7 @@ type TestArtifact struct {
 	EventsCollapsed       bool      `bson:"events_collapsed,omitempty" json:"events_collapsed,omitempty" yaml:"events_collapsed,omitempty"`
 	ConvertGzip           bool      `bson:"convert_gzip,omitempty" json:"convert_gzip,omitempty" yaml:"convert_gzip,omitempty"`
 	ConvertBSON2FTDC      bool      `bson:"convert_bson_to_ftdc,omitempty" json:"convert_bson_to_ftdc,omitempty" yaml:"convert_bson_to_ftdc,omitempty"`
+	ConvertJSON2FTDC      bool      `bson:"convert_json_to_ftdc" json:"convert_json_to_ftdc" yaml:"convert_json_to_ftdc"`
 	ConvertCSV2FTDC       bool      `bson:"convert_csv_to_ftdc" json:"convert_csv_to_ftdc" yaml:"convert_csv_to_ftdc"`
 }
 
@@ -80,7 +81,7 @@ func (a *TestArtifact) Validate() error {
 		a.PayloadFTDC = true
 	}
 
-	if isMoreThanOneTrue([]bool{a.ConvertBSON2FTDC, a.ConvertCSV2FTDC}) {
+	if isMoreThanOneTrue([]bool{a.ConvertBSON2FTDC, a.ConvertCSV2FTDC, a.ConvertJSON2FTDC}) {
 		catcher.Add(errors.New("cannot specify contradictory conversion requests"))
 	}
 
