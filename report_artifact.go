@@ -1,6 +1,7 @@
 package poplar
 
 import (
+	"bufio"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -13,13 +14,14 @@ import (
 	"github.com/mongodb/ftdc"
 	"github.com/mongodb/ftdc/bsonx"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/pkg/errors"
 )
 
 const defaultChunkSize = 2048
 
 func (a *TestArtifact) hasConversion() bool {
-	return a.ConvertBSON2FTDC || a.ConvertCSV2FTDC || a.ConvertGzip
+	return a.ConvertBSON2FTDC || a.ConvertJSON2FTDC || a.ConvertCSV2FTDC || a.ConvertGzip
 }
 
 func (a *TestArtifact) Convert(ctx context.Context) error {
@@ -38,6 +40,13 @@ func (a *TestArtifact) Convert(ctx context.Context) error {
 	switch {
 	case a.ConvertBSON2FTDC:
 		fn, err := a.bsonToFTDC(ctx, a.LocalFile)
+		if err != nil {
+			return errors.Wrap(err, "problem converting file")
+		}
+		a.LocalFile = fn
+		fallthrough
+	case a.ConvertJSON2FTDC:
+		fn, err := a.jsonToFTDC(ctx, a.LocalFile)
 		if err != nil {
 			return errors.Wrap(err, "problem converting file")
 		}
@@ -148,7 +157,7 @@ func (a *TestArtifact) bsonToFTDC(ctx context.Context, path string) (string, err
 func (a *TestArtifact) csvToFTDC(ctx context.Context, path string) (string, error) {
 	srcFile, err := os.Open(path)
 	if err != nil {
-		return path, errors.Wrapf(err, "problem opening bson input file '%s'", path)
+		return path, errors.Wrapf(err, "problem opening csv input file '%s'", path)
 	}
 	defer srcFile.Close()
 
@@ -162,6 +171,45 @@ func (a *TestArtifact) csvToFTDC(ctx context.Context, path string) (string, erro
 
 	catcher.Add(errors.Wrap(ftdc.ConvertFromCSV(ctx, defaultChunkSize, srcFile, ftdcFile),
 		"problem converting csv to ftdc file"))
+
+	return path, catcher.Resolve()
+}
+
+func (a *TestArtifact) jsonToFTDC(ctx context.Context, path string) (string, error) {
+	srcFile, err := os.Open(path)
+	if err != nil {
+		return path, errors.Wrapf(err, "problem opening csv input file '%s'", path)
+	}
+	defer srcFile.Close()
+
+	path = strings.TrimSuffix(path, ".csv") + ".ftdc"
+	catcher := grip.NewCatcher()
+	ftdcFile, err := os.Create(path)
+	if err != nil {
+		return path, errors.Wrapf(err, "problem opening ftdc output file '%s'", path)
+	}
+	defer func() { catcher.Add(ftdcFile.Close()) }()
+
+	collector := ftdc.NewStreamingDynamicCollector(defaultChunkSize, ftdcFile)
+	defer func() { catcher.Add(ftdc.FlushCollector(collector, ftdcFile)) }()
+
+	stream := bufio.NewScanner(srcFile)
+	for stream.Scan() {
+		doc := &bsonx.Document{}
+		err := bson.UnmarshalExtJSON(stream.Bytes(), false, doc)
+		if err != nil {
+			catcher.Add(errors.Wrap(err, "problem reading json from source"))
+			break
+		}
+
+		err = collector.Add(bsonDoc)
+		if err != nil {
+			catcher.Add(errors.Wrap(err, "failed to write FTDC from BSON"))
+			break
+		}
+	}
+
+	catcher.Add(stream.Err())
 
 	return path, catcher.Resolve()
 }
