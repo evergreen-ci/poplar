@@ -143,7 +143,7 @@ func (a *TestArtifact) bsonToFTDC(ctx context.Context, path string) (string, err
 			break
 		}
 
-		err = collector.Add(bsonDoc)
+		err = collector.Add(doc)
 		if err != nil {
 			catcher.Add(errors.Wrap(err, "failed to write FTDC from BSON"))
 			break
