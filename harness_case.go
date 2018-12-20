@@ -78,13 +78,14 @@ func (c *BenchmarkCase) Standard(r events.Recorder) func(*testing.B) { return c.
 
 // Name returns either the CaseName value OR the name of the symbol
 // for the benchmark function. Use CaseName when you define the case
-// as a function literal,
+// as a function literal, defaulting
 func (c *BenchmarkCase) Name() string {
 	if c.CaseName != "" {
 		return c.CaseName
 	}
 	return getName(c.Bench)
 }
+
 func (c *BenchmarkCase) SetName(n string) *BenchmarkCase                 { c.CaseName = n; return c }
 func (c *BenchmarkCase) SetRecorder(r RecorderType) *BenchmarkCase       { c.Recorder = r; return c }
 func (c *BenchmarkCase) SetBench(b Benchmark) *BenchmarkCase             { c.Bench = b; return c }

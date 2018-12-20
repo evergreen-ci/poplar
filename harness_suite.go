@@ -12,6 +12,9 @@ import (
 )
 
 // BenchmarkSuite is a convenience wrapper around a group of suites.
+//
+// You can use the Standard() function to convert these benchmarks to
+// a standard go library benchmark function.
 type BenchmarkSuite []BenchmarkCase
 
 // Validate aggregates the validation of all constituent tests. The
