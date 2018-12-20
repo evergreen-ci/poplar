@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/ftdc"
 	"github.com/mongodb/ftdc/bsonx"
@@ -94,7 +93,7 @@ func (a *TestArtifact) Upload(ctx context.Context, conf BucketConfiguration) err
 			Prefix: conf.Prefix,
 		}
 		if (conf.APIKey != "" && conf.APISecret != "") || conf.APIToken != "" {
-			opts.Credentials = credentials.NewStaticCredentials(conf.APIKey, conf.APISecret, conf.APIToken)
+			opts.Credentials = pail.CreateAWSCredentials(conf.APIKey, conf.APISecret, conf.APIToken)
 		}
 
 		conf.bucket, err = pail.NewS3Bucket(opts)
@@ -202,7 +201,7 @@ func (a *TestArtifact) jsonToFTDC(ctx context.Context, path string) (string, err
 			break
 		}
 
-		err = collector.Add(bsonDoc)
+		err = collector.Add(doc)
 		if err != nil {
 			catcher.Add(errors.Wrap(err, "failed to write FTDC from BSON"))
 			break
