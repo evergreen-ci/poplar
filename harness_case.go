@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mongodb/ftdc/events"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
@@ -23,14 +24,16 @@ import (
 // BenchmarkCase into a more conventional go standard library
 // Bencharmk function.
 type BenchmarkCase struct {
-	CaseName      string
-	Bench         Benchmark
-	MinRuntime    time.Duration
-	MaxRuntime    time.Duration
-	Count         int
-	MinIterations int
-	MaxIterations int
-	Recorder      RecorderType
+	CaseName         string
+	Bench            Benchmark
+	MinRuntime       time.Duration
+	MaxRuntime       time.Duration
+	Timeout          time.Duration
+	IterationTimeout time.Duration
+	Count            int
+	MinIterations    int
+	MaxIterations    int
+	Recorder         RecorderType
 }
 
 // Benchmark defines a function signature for running a benchmark
@@ -77,8 +80,9 @@ func (bench Benchmark) Standard(recorder events.Recorder) func(*testing.B) {
 func (c *BenchmarkCase) Standard(r events.Recorder) func(*testing.B) { return c.Bench.Standard(r) }
 
 // Name returns either the CaseName value OR the name of the symbol
-// for the benchmark function. Use CaseName when you define the case
-// as a function literal, defaulting
+// for the benchmark function. Use the CaseName field/SetName function
+// when you define the case as a function literal, or to override the
+// function name.
 func (c *BenchmarkCase) Name() string {
 	if c.CaseName != "" {
 		return c.CaseName
@@ -86,12 +90,37 @@ func (c *BenchmarkCase) Name() string {
 	return getName(c.Bench)
 }
 
-func (c *BenchmarkCase) SetName(n string) *BenchmarkCase                 { c.CaseName = n; return c }
-func (c *BenchmarkCase) SetRecorder(r RecorderType) *BenchmarkCase       { c.Recorder = r; return c }
-func (c *BenchmarkCase) SetBench(b Benchmark) *BenchmarkCase             { c.Bench = b; return c }
-func (c *BenchmarkCase) SetCount(v int) *BenchmarkCase                   { c.Count = v; return c }
+// SetName sets the case's name, overriding the symbol name if
+// needed, and is part of the BenchmarkCase's fluent interface.
+func (c *BenchmarkCase) SetName(n string) *BenchmarkCase { c.CaseName = n; return c }
+
+// SetRecorder overrides, the default event recorder type, which
+// allows you to change the way that intrarun data is collected and
+// allows you to use histogram data if needed for longer runs, and is
+// part of the BenchmarkCase's fluent interface.
+func (c *BenchmarkCase) SetRecorder(r RecorderType) *BenchmarkCase { c.Recorder = r; return c }
+
+// SetBench allows you set the benchmark cunftion, and is part of the
+// BenchmarkCase's fluent interface.
+func (c *BenchmarkCase) SetBench(b Benchmark) *BenchmarkCase { c.Bench = b; return c }
+
+// SetCount allows you to set the count number passed to the benchmark
+// function which should control the number of internal iterations,
+// and is part of the BenchmarkCase's fluent interface.
+//
+// If running as a standard library test, this value is ignored.
+func (c *BenchmarkCase) SetCount(v int) *BenchmarkCase { c.Count = v; return c }
+
+// SetMaxDuration allows to specify a maximum duration for the
+// test. If the test has been running for more than this period of
+// time, then it will stop running. If you do not specify a timeout
 func (c *BenchmarkCase) SetMaxDuration(dur time.Duration) *BenchmarkCase { c.MaxRuntime = dur; return c }
 func (c *BenchmarkCase) SetMaxIterations(v int) *BenchmarkCase           { c.MaxIterations = v; return c }
+func (c *BenchmarkCase) SetIterationTimeout(dur time.Duration) *BenchmarkCase {
+	c.IterationTimeout = dur
+	return c
+}
+func (c *BenchmarkCase) SetTimeout(dur time.Duration) *BenchmarkCase { c.Timeout = dur; return c }
 
 func (c *BenchmarkCase) SetDuration(dur time.Duration) *BenchmarkCase {
 	c.MinRuntime = dur
@@ -125,19 +154,41 @@ func (c *BenchmarkCase) Validate() error {
 		c.Count = 1
 	}
 
+	if c.Timeout == 0 {
+		c.Timeout = 3 * c.MaxRuntime
+	}
+
+	if c.Timeout == 0 {
+		c.Timeout = 10 * time.Minute
+	}
+
+	if c.IterationTimeout == 0 {
+		c.IterationTimeout = 2 * c.MaxRuntime
+	}
+
+	if c.IterationTimeout == 0 {
+		c.IterationTimeout = 5 * time.Minute
+	}
+
+	catcher := grip.NewBasicCatcher()
+
 	if c.Bench == nil {
-		return errors.New("must specify a valid benchmark")
+		catcher.Add(errors.New("must specify a valid benchmark"))
 	}
 
 	if c.MinRuntime >= c.MaxRuntime {
-		return errors.New("min runtime must not be >= max runtime ")
+		catcher.Add(errors.New("min runtime must not be >= max runtime "))
 	}
 
 	if c.MinIterations >= c.MaxIterations {
-		return errors.New("min iterations must not be >= max iterations")
+		catcher.Add(errors.New("min iterations must not be >= max iterations"))
 	}
 
-	return nil
+	if c.IterationTimeout > c.Timeout {
+		catcher.Add(errors.New("iteration timeout cannot be longer than case timeout"))
+	}
+
+	return catcher.Resolve()
 }
 
 func (c *BenchmarkCase) Run(ctx context.Context, recorder events.Recorder) BenchmarkResult {
@@ -160,7 +211,7 @@ func (c *BenchmarkCase) Run(ctx context.Context, recorder events.Recorder) Bench
 			break
 		default:
 			startAt := time.Now()
-			bctx, bcancel := context.WithCancel(ctx)
+			bctx, bcancel := context.WithTimeout(ctx)
 			res.Error = c.Bench(bctx, recorder, c.Count)
 			res.Runtime += time.Since(startAt)
 			res.Iterations++
