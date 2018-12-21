@@ -41,10 +41,35 @@ func (res *BenchmarkResult) Report() string {
 	return strings.Join(out, "\n")
 }
 
+// Export converts a benchmark result into a test structure to support
+// integration with cedar.
+func (res *BenchmarkResult) Export() Test {
+	return Test{
+		CreatedAt:   res.StartAt,
+		CompletedAt: res.CompletedAt,
+		Artifacts: []TestArtifact{
+			{
+				LocalFile:        res.ArtifactPath,
+				PayloadFTDC:      true,
+				EventsRaw:        true,
+				DataUncompressed: true,
+			},
+		},
+		Info: TestInfo{
+			TestName: res.Name,
+			Tags:     []string{"poplar"},
+			Arguments: map[string]int32{
+				"count":      int32(res.Count),
+				"iterations": int32(res.Iterations),
+			},
+		},
+	}
+}
+
 // Composer produces a grip/message.Composer implementation that
 // allows for easy logging of a results object. The message's string
 // form is the same as Report, but also includes a structured raw format.
-func (res *BenchmarkResult) Composer() message.Compsoer { return nil }
+func (res *BenchmarkResult) Composer() message.Composer { return nil }
 
 type resultComposer struct {
 	res          *BenchmarkResult `bson:"result" json:"result" yaml:"result"`
@@ -86,11 +111,21 @@ func (res BenchmarkSuiteResults) Report() string {
 // Composer returns a grip/message.Composer implementation that
 // aggregates Composers from all of the results.
 func (res BenchmarkSuiteResults) Composer() message.Composer {
-	msgs := make([]message.Composer{}, len(res))
+	msgs := make([]message.Composer, len(res))
 
 	for idx, res := range res {
 		msgs[idx] = res.Composer()
 	}
 
 	return message.NewGroupComposer(msgs)
+}
+
+// Export converts a group of test results into a slice of tests in
+// preparation for uploading those results.
+func (res BenchmarkSuiteResults) Export() []Test {
+	out := make([]Test, len(res))
+	for idx, r := range res {
+		out[idx] = r.Export()
+	}
+	return out
 }
