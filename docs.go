@@ -96,7 +96,7 @@
 //	results := suite.Run(ctx, "poplar_raw")
 //	grip.Info(results.Composer()) // log results.
 //
-//      // Optionally send results to cedar
+//         // Optionally send results to cedar
 //
 //	report := &Report{
 //		Project:  "poplar test",
@@ -121,7 +121,27 @@
 //		grip.EmergencyFatal(err) // exit
 //	}
 //
+// You can also run a benchmark suite using go's standard library, as
+// in:
 //
+//      var registry *RecorderRegistry
+//
+//      func BenchmarkHelloWorldSuite(b *testing.B) {
+//		recorder, err := registry.Create(name, poplar.CreateOptions{
+//			Path:      path,
+//			ChunkSize: 1024,
+//			Streaming: true,
+//			Dynamic:   true,
+//			Recorder:  poplar.RecorderPerf,
+//		})
+//		if err != nil {
+//			b.Fatal(err)
+//		}
+//
+//		suite.Standard(recorder)
+//      }
+//
+// Each test in the suite is reported as a seperate sub-benchmark.
 package poplar
 
 // This file is intentionally documentation only.
