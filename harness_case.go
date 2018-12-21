@@ -23,6 +23,11 @@ import (
 // You can also use the Standard() function to convert the
 // BenchmarkCase into a more conventional go standard library
 // Bencharmk function.
+//
+// You can construct BenchmarkCases either directly, or using a fluent
+// interface. The Validate method ensures that the case is well formed
+// and sets some default values, overriding unambigious and unuseful
+// zero values.
 type BenchmarkCase struct {
 	CaseName         string
 	Bench            Benchmark
@@ -111,17 +116,48 @@ func (c *BenchmarkCase) SetBench(b Benchmark) *BenchmarkCase { c.Bench = b; retu
 // If running as a standard library test, this value is ignored.
 func (c *BenchmarkCase) SetCount(v int) *BenchmarkCase { c.Count = v; return c }
 
-// SetMaxDuration allows to specify a maximum duration for the
-// test. If the test has been running for more than this period of
-// time, then it will stop running. If you do not specify a timeout
+// SetMaxDuration allows you to specify a maximum duration for the
+// test, and is part of the BenchmarkCase's fluent interface. If the
+// test has been running for more than this period of time, then it
+// will stop running. If you do not specify a timeout, poplar
+// execution will use some factor of the max duration.
 func (c *BenchmarkCase) SetMaxDuration(dur time.Duration) *BenchmarkCase { c.MaxRuntime = dur; return c }
-func (c *BenchmarkCase) SetMaxIterations(v int) *BenchmarkCase           { c.MaxIterations = v; return c }
+
+// SetMaxIterations allows you to specify a maximum number of times
+// that the test will execute, and is part of the BenchmarkCase's
+// fluent interface. This setting is optional.
+//
+// The number of iterations refers to the number of time that the test
+// case executes, and is not passed to the benchmark.
+func (c *BenchmarkCase) SetMaxIterations(v int) *BenchmarkCase { c.MaxIterations = v; return c }
+
+// SetIterationTimeout describes the timeout set on the context passed
+// to each individual iteration, and is part of the BenchmarkCase's
+// fluent interface. It must be less than the total timeout.
+//
+// See the validation function for information on the default value.
 func (c *BenchmarkCase) SetIterationTimeout(dur time.Duration) *BenchmarkCase {
 	c.IterationTimeout = dur
 	return c
 }
+
+// SetTimeout sets the total timeout for the entire case, and is part
+// of the BenchmarkCase's fluent interface. It must be greater than
+// the iteration timeout.
+//
+// See the validation function for information on the default value.
 func (c *BenchmarkCase) SetTimeout(dur time.Duration) *BenchmarkCase { c.Timeout = dur; return c }
 
+// SetDuration sets the minimum runtime for the case, as part of the
+// fluent interfaces. This method also sets a maxmum runtime, which is
+// 10x this value when the duration is under a minute, 2x this value
+// when the duration is under ten minutes, and 1 minute greater when
+// the duration is greater than ten minutes.
+//
+// You can override the maximum duration separately, if these defaults
+// do not make sense for your case.
+//
+// The minimum and maximum runtime values are optional.
 func (c *BenchmarkCase) SetDuration(dur time.Duration) *BenchmarkCase {
 	c.MinRuntime = dur
 	if dur <= time.Minute {
@@ -134,17 +170,30 @@ func (c *BenchmarkCase) SetDuration(dur time.Duration) *BenchmarkCase {
 	return c
 }
 
+// SetIterations sets the minimum iterations for the case. It also
+// sets the maximum number of iterations to 10x the this value, which
+// you can override with SetMaxIterations.
 func (c *BenchmarkCase) SetIterations(v int) *BenchmarkCase {
 	c.MinIterations = v
 	c.MaxIterations = 10 * v
 	return c
 }
 
+// String satisfies fmt.Stringer and prints a string representation of
+// the case and its values.
 func (c *BenchmarkCase) String() string {
-	return fmt.Sprintf("name=%s, count=%d, min_dur=%s, max_dur=%s, min_iters=%s, max_iters=%d",
-		c.Name(), c.Count, c.MinRuntime, c.MaxRuntime, c.MinIterations, c.MaxIterations)
+	return fmt.Sprintf("name=%s, count=%d, min_dur=%s, max_dur=%s, min_iters=%s, max_iters=%d, timeout=%s, iter_timeout=%s",
+		c.Name(), c.Count, c.MinRuntime, c.MaxRuntime, c.MinIterations, c.MaxIterations, c.Timeout, c.IterationTimeout)
 }
 
+// Validate checks the values of the case, setting default values when
+// possible and returning errors if the settings would lead to an
+// impossible execution.
+//
+// If not set, validate imposes the following defaults: count is set
+// to 1; the Timeout is set to 3 times the maximum runtime (if set)
+// or 10 minutes; the IterationTimeout is set to twice the maximum
+// runtime (if set) or five minutes.
 func (c *BenchmarkCase) Validate() error {
 	if c.Recorder == "" {
 		c.Recorder = RecorderPerf
@@ -176,6 +225,14 @@ func (c *BenchmarkCase) Validate() error {
 		catcher.Add(errors.New("must specify a valid benchmark"))
 	}
 
+	if c.MinIterations == 0 {
+		catcher.Add(errors.New("must define a minmum number of iterations"))
+	}
+
+	if c.MinRuntime == 0 {
+		catcher.Add(errors.New("must define a minmum runtime for the case"))
+	}
+
 	if c.MinRuntime >= c.MaxRuntime {
 		catcher.Add(errors.New("min runtime must not be >= max runtime "))
 	}
@@ -191,6 +248,18 @@ func (c *BenchmarkCase) Validate() error {
 	return catcher.Resolve()
 }
 
+// Run executes the benchmark recording interrun data to the
+// recorder, and returns the populated result.
+//
+// The benchmark will be run as many times as needed until both the
+// minimum iteration and runtime requirements are satisfied OR the
+// maximum runtime or iteration requirements are satisfied.
+//
+// If the test case errors, the runtime or iteration count are not
+// incremented, and the test will return early. Similarly if the
+// context is canceled the test will return early, and while the tests
+// themselves are passed the context which reflects the execution
+// timeout, the tests can choose to propagate that error.
 func (c *BenchmarkCase) Run(ctx context.Context, recorder events.Recorder) BenchmarkResult {
 	res := &BenchmarkResult{
 		Iterations: 1,
@@ -198,45 +267,51 @@ func (c *BenchmarkCase) Run(ctx context.Context, recorder events.Recorder) Bench
 	}
 
 	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(ctx, 2*c.MaxRuntime)
+	ctx, cancel = context.WithTimeout(ctx, c.Timeout)
 	defer cancel()
 
 	for {
 		switch {
 		case ctx.Err() != nil:
 			break
-		case c.satisfiedMinimumRuntime(res) && c.satisfiedMinimumIterations(res):
-			break
-		case c.exceededMaximumRuntime(res) || c.exceededMaximumIterations(res):
+		case c.satisfiedMinimumIterations(res) || c.exceededMaximums(res):
 			break
 		default:
 			startAt := time.Now()
-			bctx, bcancel := context.WithTimeout(ctx)
+			bctx, bcancel := context.WithTimeout(ctx, c.IterationTimeout)
 			res.Error = c.Bench(bctx, recorder, c.Count)
-			res.Runtime += time.Since(startAt)
-			res.Iterations++
 			bcancel()
 
 			if res.Error != nil {
-				recorder.SetFailed(true)
 				break
 			}
+
+			res.Runtime += time.Since(startAt)
+			res.Iterations++
 		}
 	}
 
 	return *res
 }
 
+func (c *BenchmarkCase) satisfiedMinimumns(res *BenchmarkResult) bool {
+	return c.satisfiedMinimumRuntime(res) && c.satisfiedMinimumIterations(res)
+}
+
+func (c *BenchmarkCase) exceededMaximums(res *BenchmarkResult) bool {
+	return c.exceededMaximumIterations(res) || c.exceededMaximumRuntime(res)
+}
+
 func (c *BenchmarkCase) satisfiedMinimumRuntime(res *BenchmarkResult) bool {
-	return (c.MinRuntime > 0 && c.MaxRuntime <= 0) && res.Runtime >= c.MinRuntime
+	return c.MinRuntime == 0 || res.Runtime >= c.MinRuntime
+}
+
+func (c *BenchmarkCase) satisfiedMinimumIterations(res *BenchmarkResult) bool {
+	return c.MinIterations >= 1 && res.Iterations >= c.MinIterations
 }
 
 func (c *BenchmarkCase) exceededMaximumRuntime(res *BenchmarkResult) bool {
 	return (c.MaxRuntime > 0 && res.Runtime >= c.MaxRuntime) && (c.MinIterations == 0 || res.Iterations > c.MinIterations)
-}
-
-func (c *BenchmarkCase) satisfiedMinimumIterations(res *BenchmarkResult) bool {
-	return (c.MinIterations > 0 && c.MaxIterations <= 0) && res.Iterations >= c.MinIterations
 }
 
 func (c *BenchmarkCase) exceededMaximumIterations(res *BenchmarkResult) bool {
