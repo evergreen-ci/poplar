@@ -21,6 +21,9 @@ Additionally, poplar provides a complete benchmark test harness with
 integration for collecting ftdc data and sending that data to cedar,
 or reporting it externally.
 
+Some popular functionality is included in the `curator
+<https://github.com/mongodb/curator>`_ tool, as ``curator poplar``.
+
 Documentation
 -------------
 
