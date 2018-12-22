@@ -171,7 +171,10 @@ func (r *RecorderRegistry) SetBenchRecorderPrefix(prefix string) {
 	r.benchPrefix = prefix
 }
 
-func (r *RecorderRegistry) MakeBenchmark(bench BenchmarkCase) (func(*testing.B), func() error, error) {
+// MakeBenchmark configures a recorder to support executing a
+// BenchmarkCase in the form of a standard library benchmarking
+// format.
+func (r *RecorderRegistry) MakeBenchmark(bench *BenchmarkCase) func(*testing.B) {
 	name := bench.Name()
 	r.mu.Lock()
 	fqname := filepath.Join(r.benchPrefix, name) + ".ftdc"
@@ -186,10 +189,10 @@ func (r *RecorderRegistry) MakeBenchmark(bench BenchmarkCase) (func(*testing.B),
 	})
 
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "problem making recorder")
+		return func(b *testing.B) { b.Fatal(errors.Wrap(err, "problem making recorder")) }
 	}
 
-	return bench.Bench.Standard(recorder), func() error { return r.Close(name) }, nil
+	return bench.Bench.standard(recorder, func() error { return r.Close(name) })
 }
 
 // Close flushes and closes the underlying recorder and collector and
@@ -249,6 +252,7 @@ func (opts *CreateOptions) build() (*recorderInstance, error) {
 
 	out := &recorderInstance{
 		isDynamic: opts.Dynamic,
+		file:      file,
 	}
 
 	switch {

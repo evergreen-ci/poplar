@@ -6,16 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
-	"github.com/pkg/errors"
 )
 
 // BenchmarkSuite is a convenience wrapper around a group of suites.
 //
 // You can use the Standard() function to convert these benchmarks to
 // a standard go library benchmark function.
-type BenchmarkSuite []BenchmarkCase
+type BenchmarkSuite []*BenchmarkCase
 
 // Validate aggregates the validation of all constituent tests. The
 // validation method for case may also modify a case to set better
@@ -34,7 +32,7 @@ func (s BenchmarkSuite) Validate() error {
 // access to a fluent-style API for declaring and modifying cases.
 func (s *BenchmarkSuite) Add() *BenchmarkCase {
 	out := &BenchmarkCase{}
-	*s = append(*s, *out)
+	*s = append(*s, out)
 	return out
 }
 
@@ -51,7 +49,7 @@ func (s *BenchmarkSuite) Add() *BenchmarkCase {
 func (s BenchmarkSuite) Run(ctx context.Context, prefix string) (BenchmarkSuiteResults, error) {
 	registry := NewRegistry()
 	catcher := grip.NewBasicCatcher()
-	res := make(BenchmarkSuiteResults, 0, len(s))
+	res := BenchmarkSuiteResults{}
 
 	for _, test := range s {
 		name := test.Name()
@@ -86,14 +84,10 @@ func (s BenchmarkSuite) Run(ctx context.Context, prefix string) (BenchmarkSuiteR
 // Standard returns a go standard library benchmark function that you
 // can use to run an entire suite. The same recorder instance is
 // passed to each test case, which is run as a subtest.
-func (s BenchmarkSuite) Standard(recorder events.Recorder) func(b *testing.B) {
+func (s BenchmarkSuite) Standard(registry *RecorderRegistry) func(b *testing.B) {
 	return func(b *testing.B) {
 		for _, test := range s {
-			if err := test.Validate(); err != nil {
-				b.Fatal(errors.Wrap(err, "benchmark validation failed"))
-			}
-
-			b.Run(test.Name(), test.Standard(recorder))
+			b.Run(test.Name(), test.Standard(registry))
 		}
 	}
 }

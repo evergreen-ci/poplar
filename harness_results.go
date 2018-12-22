@@ -44,17 +44,9 @@ func (res *BenchmarkResult) Report() string {
 // Export converts a benchmark result into a test structure to support
 // integration with cedar.
 func (res *BenchmarkResult) Export() Test {
-	return Test{
+	out := Test{
 		CreatedAt:   res.StartAt,
 		CompletedAt: res.CompletedAt,
-		Artifacts: []TestArtifact{
-			{
-				LocalFile:        res.ArtifactPath,
-				PayloadFTDC:      true,
-				EventsRaw:        true,
-				DataUncompressed: true,
-			},
-		},
 		Info: TestInfo{
 			TestName: res.Name,
 			Tags:     []string{"poplar"},
@@ -64,12 +56,23 @@ func (res *BenchmarkResult) Export() Test {
 			},
 		},
 	}
+
+	if res.ArtifactPath != "" {
+		out.Artifacts = append(out.Artifacts, TestArtifact{
+			LocalFile:        res.ArtifactPath,
+			PayloadFTDC:      true,
+			EventsRaw:        true,
+			DataUncompressed: true,
+		})
+	}
+
+	return out
 }
 
 // Composer produces a grip/message.Composer implementation that
 // allows for easy logging of a results object. The message's string
 // form is the same as Report, but also includes a structured raw format.
-func (res *BenchmarkResult) Composer() message.Composer { return nil }
+func (res *BenchmarkResult) Composer() message.Composer { return &resultComposer{res: res} }
 
 type resultComposer struct {
 	res          *BenchmarkResult `bson:"result" json:"result" yaml:"result"`

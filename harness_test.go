@@ -3,12 +3,13 @@ package poplar
 import (
 	"context"
 	"errors"
+	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/mongodb/ftdc"
 	"github.com/mongodb/ftdc/events"
-	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -277,21 +278,6 @@ func TestCaseType(t *testing.T) {
 					assert.Equal(t, 4*time.Minute, c.MaxRuntime)
 				},
 			},
-			{
-				Name: "Standard",
-				Case: func(t *testing.T, c *BenchmarkCase) {
-					c.SetBench(func(ctx context.Context, _ events.Recorder, count int) error { return errors.New("is nil") })
-					assert.NotZero(t, c.Bench)
-					assert.NotNil(t, c.Bench.Standard(nil))
-					assert.NotNil(t, c.Standard(nil))
-					assert.Panics(t, func() { c.Standard(nil)(nil) })
-					assert.NotPanics(t, func() {
-						res := testing.Benchmark(c.Standard(nil))
-						assert.Zero(t, res)
-					})
-
-				},
-			},
 		} {
 			t.Run(test.Name, func(t *testing.T) {
 				test.Case(t, &BenchmarkCase{})
@@ -346,7 +332,6 @@ func TestCaseType(t *testing.T) {
 			assert.NoError(t, res.Error)
 			assert.Zero(t, res.Iterations)
 			assert.True(t, res.CompletedAt.Sub(res.StartAt) < time.Second)
-			grip.Info(res)
 		})
 		t.Run("Error", func(t *testing.T) {
 			err := errors.New("foo")
@@ -370,4 +355,258 @@ func TestCaseType(t *testing.T) {
 			assert.True(t, res.CompletedAt.Sub(res.StartAt) < time.Millisecond)
 		})
 	})
+}
+
+func TestResultType(t *testing.T) {
+	res := BenchmarkResult{
+		Name:         "PoplarBench",
+		Runtime:      42 * time.Minute,
+		Count:        100,
+		Iterations:   400,
+		ArtifactPath: "build/poplar_bench.ftdc",
+		StartAt:      time.Now().Add(-time.Hour),
+		CompletedAt:  time.Now(),
+	}
+	t.Run("Zero", func(t *testing.T) {
+		res := BenchmarkResult{}
+		assert.Zero(t, res)
+		assert.NotZero(t, res.Report())
+	})
+	t.Run("PassingContent", func(t *testing.T) {
+		report := res.Report()
+		assert.NotZero(t, res)
+		assert.Contains(t, report, res.Name)
+		assert.Contains(t, report, "runtime=42m")
+		assert.Contains(t, report, "400")
+		assert.Contains(t, report, "100")
+		assert.NotContains(t, report, "poplar_bench.ftdc")
+		assert.Contains(t, report, "REPORT")
+		assert.Contains(t, report, "RUN")
+		assert.Contains(t, report, "PASS")
+	})
+	t.Run("FailingContent", func(t *testing.T) {
+		res.Error = errors.New("foo")
+		defer func() { res.Error = nil }()
+
+		report := res.Report()
+		assert.NotZero(t, res)
+		assert.Contains(t, report, res.Name)
+		assert.Contains(t, report, "runtime=42m")
+		assert.Contains(t, report, "400")
+		assert.Contains(t, report, "100")
+		assert.NotContains(t, report, "poplar_bench.ftdc")
+		assert.Contains(t, report, "REPORT")
+		assert.Contains(t, report, "ERRORS")
+		assert.Contains(t, report, "RUN")
+		assert.Contains(t, report, "FAIL")
+	})
+	t.Run("Composer", func(t *testing.T) {
+		res.Error = errors.New("foo")
+		defer func() { res.Error = nil }()
+
+		comp := res.Composer()
+		assert.NotNil(t, comp)
+		assert.Equal(t, res.Report(), comp.String())
+		assert.True(t, comp.Loggable())
+		assert.False(t, (&resultComposer{}).Loggable())
+		assert.NotNil(t, comp.Raw())
+		assert.Equal(t, comp, comp.Raw())
+	})
+	t.Run("Export", func(t *testing.T) {
+		out := res.Export()
+		assert.NotZero(t, out)
+		assert.Equal(t, res.StartAt, out.CreatedAt)
+		assert.Equal(t, res.CompletedAt, out.CompletedAt)
+		assert.NotNil(t, res.ArtifactPath)
+		assert.Len(t, out.Artifacts, 1)
+		assert.Equal(t, res.ArtifactPath, out.Artifacts[0].LocalFile)
+	})
+	t.Run("Results", func(t *testing.T) {
+		t.Run("Empty", func(t *testing.T) {
+			s := BenchmarkSuiteResults{}
+			assert.Zero(t, s.Report())
+			assert.False(t, s.Composer().Loggable())
+			assert.Equal(t, len(s), len(s.Export()))
+		})
+		t.Run("Populated", func(t *testing.T) {
+			s := BenchmarkSuiteResults{
+				res, res, res,
+			}
+			assert.NotZero(t, s.Report())
+			assert.True(t, s.Composer().Loggable())
+			assert.Equal(t, len(s), len(s.Export()))
+		})
+	})
+}
+
+func TestSuiteType(t *testing.T) {
+	t.Run("Validation", func(t *testing.T) {
+		t.Run("Empty", func(t *testing.T) {
+			s := BenchmarkSuite{}
+			assert.NoError(t, s.Validate())
+		})
+		t.Run("Zero", func(t *testing.T) {
+			c := BenchmarkCase{}
+			assert.Error(t, c.Validate())
+			assert.Error(t, c.Validate())
+			s := BenchmarkSuite{&c}
+			assert.Error(t, s.Validate())
+			assert.Equal(t, s.Validate().Error(), c.Validate().Error())
+		})
+	})
+	t.Run("Fluent", func(t *testing.T) {
+		s := BenchmarkSuite{}
+		assert.Len(t, s, 0)
+		c := s.Add().SetName("poplar")
+		assert.NotNil(t, c)
+		assert.Len(t, s, 1)
+		assert.Equal(t, s[0].Name(), c.Name())
+	})
+	t.Run("Execution", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		tmpdir, err := ioutil.TempDir("", "poplar-harness-test")
+		require.NoError(t, err)
+		defer func() { require.NoError(t, os.RemoveAll(tmpdir)) }()
+
+		t.Run("Empty", func(t *testing.T) {
+			s := BenchmarkSuite{}
+			res, err := s.Run(ctx, tmpdir)
+			assert.NoError(t, err)
+			assert.Len(t, res, 0)
+		})
+		t.Run("NoopTest", func(t *testing.T) {
+			c := &BenchmarkCase{
+				Bench:            func(ctx context.Context, _ events.Recorder, count int) error { return nil },
+				MinIterations:    2,
+				MaxIterations:    4,
+				MinRuntime:       time.Millisecond,
+				MaxRuntime:       time.Second,
+				Timeout:          time.Minute,
+				IterationTimeout: time.Microsecond,
+				Recorder:         RecorderPerf,
+			}
+			s := BenchmarkSuite{c}
+			assert.Len(t, s, 1)
+			res, err := s.Run(ctx, tmpdir)
+			assert.NoError(t, err)
+			assert.Len(t, res, 1)
+		})
+		t.Run("SomeErrors", func(t *testing.T) {
+			counter := 0
+
+			s := BenchmarkSuite{
+				{
+					CaseName:         "firstErr",
+					Bench:            func(ctx context.Context, _ events.Recorder, count int) error { counter++; return nil },
+					MinIterations:    2,
+					MaxIterations:    4,
+					MinRuntime:       time.Millisecond,
+					MaxRuntime:       time.Second,
+					Timeout:          time.Minute,
+					IterationTimeout: time.Microsecond,
+					Recorder:         RecorderPerf,
+				},
+				{
+					CaseName:         "errorerrror",
+					Bench:            func(ctx context.Context, _ events.Recorder, count int) error { return errors.New("foo") },
+					MinIterations:    2,
+					MaxIterations:    4,
+					MinRuntime:       time.Millisecond,
+					MaxRuntime:       time.Second,
+					Timeout:          time.Minute,
+					IterationTimeout: time.Microsecond,
+					Recorder:         RecorderPerf,
+				},
+				{
+					CaseName:         "seconderr",
+					Bench:            func(ctx context.Context, _ events.Recorder, count int) error { counter += 2; return nil },
+					MinIterations:    2,
+					MaxIterations:    4,
+					MinRuntime:       time.Millisecond,
+					MaxRuntime:       time.Second,
+					Timeout:          time.Minute,
+					IterationTimeout: time.Microsecond,
+					Recorder:         RecorderPerf,
+				},
+			}
+			assert.Len(t, s, 3)
+			res, err := s.Run(ctx, tmpdir)
+			assert.Error(t, err)
+			assert.Len(t, res, 3)
+			assert.Contains(t, err.Error(), "foo")
+			assert.True(t, counter > 200)
+		})
+		t.Run("CollectoError", func(t *testing.T) {
+			s := BenchmarkSuite{
+				{
+					CaseName:         "one",
+					Bench:            func(ctx context.Context, _ events.Recorder, count int) error { return nil },
+					MinIterations:    2,
+					MaxIterations:    4,
+					MinRuntime:       time.Millisecond,
+					MaxRuntime:       time.Second,
+					Timeout:          time.Minute,
+					IterationTimeout: time.Microsecond,
+					Recorder:         RecorderPerf,
+				},
+				{
+					CaseName:         "one",
+					Bench:            func(ctx context.Context, _ events.Recorder, count int) error { return nil },
+					MinIterations:    2,
+					MaxIterations:    4,
+					MinRuntime:       time.Millisecond,
+					MaxRuntime:       time.Second,
+					Timeout:          time.Minute,
+					IterationTimeout: time.Microsecond,
+					Recorder:         RecorderPerf,
+				},
+			}
+
+			assert.Len(t, s, 2)
+			res, err := s.Run(ctx, tmpdir)
+			assert.Error(t, err)
+			assert.Len(t, res, 1)
+			assert.Contains(t, err.Error(), "because it exists")
+			assert.Contains(t, err.Error(), "could not create")
+		})
+
+		t.Run("Standard", func(t *testing.T) {
+
+			registry := NewRegistry()
+			registry.SetBenchRecorderPrefix(tmpdir)
+
+			counter := 0
+			c := &BenchmarkCase{
+				CaseName:         "one-" + randomString(),
+				Bench:            func(ctx context.Context, _ events.Recorder, count int) error { counter++; return nil },
+				MinIterations:    2,
+				MaxIterations:    4,
+				MinRuntime:       time.Millisecond,
+				MaxRuntime:       time.Second,
+				Timeout:          time.Minute,
+				IterationTimeout: time.Microsecond,
+				Recorder:         RecorderPerf,
+			}
+
+			s := BenchmarkSuite{c}
+			assert.NoError(t, c.Validate())
+			res := testing.Benchmark(s.Standard(registry))
+			assert.Equal(t, 1, res.N)
+			assert.True(t, res.T < time.Millisecond)
+			first := counter
+
+			c.MinRuntime = time.Minute
+			c.CaseName = "two-" + randomString()
+			s = BenchmarkSuite{c}
+			assert.Error(t, c.Validate())
+			res = testing.Benchmark(s.Standard(registry))
+			assert.Equal(t, 1, res.N)
+			assert.True(t, res.T < time.Millisecond)
+			assert.Equal(t, first, counter)
+
+		})
+	})
+
 }

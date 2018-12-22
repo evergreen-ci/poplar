@@ -62,13 +62,15 @@ type BenchmarkCase struct {
 //
 type Benchmark func(context.Context, events.Recorder, int) error
 
-// Standard converts Benchmark function into a standard library test
-// function, using the recorder to capture events. The count value
-// passed to the benchmark function is b.N.
-func (bench Benchmark) Standard(recorder events.Recorder) func(*testing.B) {
+func (bench Benchmark) standard(recorder events.Recorder, closer func() error) func(*testing.B) {
 	return func(b *testing.B) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+		defer func() {
+			if err := closer(); err != nil {
+				b.Fatal(errors.Wrap(err, "benchmark cleanup"))
+			}
+		}()
 
 		shim := events.NewShimRecorder(recorder, b)
 		b.ResetTimer()
@@ -80,9 +82,17 @@ func (bench Benchmark) Standard(recorder events.Recorder) func(*testing.B) {
 	}
 }
 
-// Standard produces a standard library test function, as a
-// passthrough for BenchmarkCase.Bench.Standard.
-func (c *BenchmarkCase) Standard(r events.Recorder) func(*testing.B) { return c.Bench.Standard(r) }
+// Standard produces a standard library test function, and configures
+// a recorder from the registry.
+func (c *BenchmarkCase) Standard(registry *RecorderRegistry) func(*testing.B) {
+	test := registry.MakeBenchmark(c)
+	return func(b *testing.B) {
+		if err := c.Validate(); err != nil {
+			b.Fatal(errors.Wrap(err, "benchmark validation failed"))
+		}
+		test(b)
+	}
+}
 
 // Name returns either the CaseName value OR the name of the symbol
 // for the benchmark function. Use the CaseName field/SetName function

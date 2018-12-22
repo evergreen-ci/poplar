@@ -1,6 +1,8 @@
 package poplar
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -46,4 +48,10 @@ func roundDurationMS(d time.Duration) time.Duration {
 		return 0
 	}
 	return rounded
+}
+
+func randomString() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
