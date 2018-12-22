@@ -27,7 +27,7 @@ type BenchmarkResult struct {
 func (res *BenchmarkResult) Report() string {
 	out := []string{
 		"=== RUN", res.Name,
-		"    --- REPORT: " + fmt.Sprintf("count=%d, iters=%s, runtime=%s", res.Count, res.Iterations, roundDurationMS(res.Runtime)),
+		"    --- REPORT: " + fmt.Sprintf("count=%d, iters=%d, runtime=%s", res.Count, res.Iterations, roundDurationMS(res.Runtime)),
 	}
 
 	if res.Error != nil {
@@ -35,7 +35,7 @@ func (res *BenchmarkResult) Report() string {
 			fmt.Sprintf("    --- ERRORS: %s", res.Error.Error()),
 			fmt.Sprintf("--- FAIL: %s (%s)", res.Name, roundDurationMS(res.Runtime)))
 	} else {
-		out = append(out, fmt.Sprintf("--- PASS: %s", res.Name, roundDurationMS(res.Runtime)))
+		out = append(out, fmt.Sprintf("--- PASS: %s (%s)", res.Name, roundDurationMS(res.Runtime)))
 	}
 
 	return strings.Join(out, "\n")

@@ -182,7 +182,7 @@ func (c *BenchmarkCase) SetIterations(v int) *BenchmarkCase {
 // String satisfies fmt.Stringer and prints a string representation of
 // the case and its values.
 func (c *BenchmarkCase) String() string {
-	return fmt.Sprintf("name=%s, count=%d, min_dur=%s, max_dur=%s, min_iters=%s, max_iters=%d, timeout=%s, iter_timeout=%s",
+	return fmt.Sprintf("name=%s, count=%d, min_dur=%s, max_dur=%s, min_iters=%d, max_iters=%d, timeout=%s, iter_timeout=%s",
 		c.Name(), c.Count, c.MinRuntime, c.MaxRuntime, c.MinIterations, c.MaxIterations, c.Timeout, c.IterationTimeout)
 }
 
@@ -307,7 +307,7 @@ func (c *BenchmarkCase) satisfiedMinimumRuntime(res *BenchmarkResult) bool {
 }
 
 func (c *BenchmarkCase) satisfiedMinimumIterations(res *BenchmarkResult) bool {
-	return c.MinIterations >= 1 && res.Iterations >= c.MinIterations
+	return c.MinIterations > 0 && res.Iterations >= c.MinIterations
 }
 
 func (c *BenchmarkCase) exceededMaximumRuntime(res *BenchmarkResult) bool {
