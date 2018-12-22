@@ -124,21 +124,10 @@
 // You can also run a benchmark suite using go's standard library, as
 // in:
 //
-//      var registry *RecorderRegistry
+//      registry := NewRegistry() // create recorder infra
 //
 //      func BenchmarkHelloWorldSuite(b *testing.B) {
-//		recorder, err := registry.Create(name, poplar.CreateOptions{
-//			Path:      path,
-//			ChunkSize: 1024,
-//			Streaming: true,
-//			Dynamic:   true,
-//			Recorder:  poplar.RecorderPerf,
-//		})
-//		if err != nil {
-//			b.Fatal(err)
-//		}
-//
-//		suite.Standard(recorder)
+//		suite.Standard(registry)(b)
 //      }
 //
 // Each test in the suite is reported as a seperate sub-benchmark.
