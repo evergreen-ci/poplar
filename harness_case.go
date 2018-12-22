@@ -128,7 +128,10 @@ func (c *BenchmarkCase) SetMaxDuration(dur time.Duration) *BenchmarkCase { c.Max
 // fluent interface. This setting is optional.
 //
 // The number of iterations refers to the number of time that the test
-// case executes, and is not passed to the benchmark.
+// case executes, and is not passed to the benchmark (e.g. the count.)
+//
+// The maximum number of iterations is ignored if minimum runtime is
+// not satisfied.
 func (c *BenchmarkCase) SetMaxIterations(v int) *BenchmarkCase { c.MaxIterations = v; return c }
 
 // SetIterationTimeout describes the timeout set on the context passed
@@ -262,20 +265,22 @@ func (c *BenchmarkCase) Validate() error {
 // timeout, the tests can choose to propagate that error.
 func (c *BenchmarkCase) Run(ctx context.Context, recorder events.Recorder) BenchmarkResult {
 	res := &BenchmarkResult{
-		Iterations: 1,
+		Iterations: 0,
 		Count:      c.Count,
+		StartAt:    time.Now(),
 	}
 
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithTimeout(ctx, c.Timeout)
 	defer cancel()
 
+benchLoop:
 	for {
 		switch {
 		case ctx.Err() != nil:
-			break
-		case c.satisfiedMinimumIterations(res) || c.exceededMaximums(res):
-			break
+			break benchLoop
+		case c.satisfiedMinimumns(res) || c.exceededMaximums(res):
+			break benchLoop
 		default:
 			startAt := time.Now()
 			bctx, bcancel := context.WithTimeout(ctx, c.IterationTimeout)
@@ -283,14 +288,15 @@ func (c *BenchmarkCase) Run(ctx context.Context, recorder events.Recorder) Bench
 			bcancel()
 
 			if res.Error != nil {
-				break
+				break benchLoop
 			}
 
 			res.Runtime += time.Since(startAt)
 			res.Iterations++
+			time.Sleep(time.Millisecond)
 		}
 	}
-
+	res.CompletedAt = time.Now()
 	return *res
 }
 

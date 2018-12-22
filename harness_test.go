@@ -2,10 +2,13 @@ package poplar
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/mongodb/ftdc"
 	"github.com/mongodb/ftdc/events"
+	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -274,10 +277,97 @@ func TestCaseType(t *testing.T) {
 					assert.Equal(t, 4*time.Minute, c.MaxRuntime)
 				},
 			},
+			{
+				Name: "Standard",
+				Case: func(t *testing.T, c *BenchmarkCase) {
+					c.SetBench(func(ctx context.Context, _ events.Recorder, count int) error { return errors.New("is nil") })
+					assert.NotZero(t, c.Bench)
+					assert.NotNil(t, c.Bench.Standard(nil))
+					assert.NotNil(t, c.Standard(nil))
+					assert.Panics(t, func() { c.Standard(nil)(nil) })
+					assert.NotPanics(t, func() {
+						res := testing.Benchmark(c.Standard(nil))
+						assert.Zero(t, res)
+					})
+
+				},
+			},
 		} {
 			t.Run(test.Name, func(t *testing.T) {
 				test.Case(t, &BenchmarkCase{})
 			})
 		}
+	})
+	t.Run("Execution", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		collector := ftdc.NewBaseCollector(10)
+		recorder := events.NewSingleRecorder(collector)
+
+		t.Run("NoopBenchmark", func(t *testing.T) {
+			c := BenchmarkCase{
+				Bench:            func(ctx context.Context, _ events.Recorder, count int) error { return nil },
+				MinIterations:    2,
+				MaxIterations:    4,
+				MinRuntime:       time.Millisecond,
+				MaxRuntime:       time.Second,
+				Timeout:          time.Minute,
+				IterationTimeout: time.Microsecond,
+			}
+			require.NoError(t, c.Validate())
+			res := c.Run(ctx, recorder)
+			assert.NoError(t, res.Error)
+			assert.True(t, res.Runtime >= time.Millisecond)
+			assert.True(t, res.Runtime <= time.Second)
+			assert.True(t, res.Iterations > c.MinIterations)
+			assert.False(t, res.Iterations < c.MaxIterations)
+
+			assert.True(t, res.CompletedAt.Sub(res.StartAt) < time.Second)
+			assert.True(t, res.CompletedAt.Sub(res.StartAt) > time.Millisecond)
+
+		})
+		t.Run("CanceledContext", func(t *testing.T) {
+			c := BenchmarkCase{
+				Bench: func(ctx context.Context, _ events.Recorder, count int) error {
+					return nil
+				},
+				MinIterations:    2,
+				MaxIterations:    4,
+				MinRuntime:       time.Minute,
+				MaxRuntime:       time.Hour,
+				Timeout:          2 * time.Hour,
+				IterationTimeout: 20 * time.Second,
+			}
+			require.NoError(t, c.Validate())
+			ctx, cancel := context.WithCancel(ctx)
+			cancel()
+			res := c.Run(ctx, recorder)
+			assert.NoError(t, res.Error)
+			assert.Zero(t, res.Iterations)
+			assert.True(t, res.CompletedAt.Sub(res.StartAt) < time.Second)
+			grip.Info(res)
+		})
+		t.Run("Error", func(t *testing.T) {
+			err := errors.New("foo")
+			c := BenchmarkCase{
+				Bench: func(ctx context.Context, _ events.Recorder, count int) error {
+					return err
+				},
+				MinIterations:    2,
+				MaxIterations:    4,
+				MinRuntime:       time.Minute,
+				MaxRuntime:       time.Hour,
+				Timeout:          2 * time.Hour,
+				IterationTimeout: 20 * time.Second,
+			}
+			require.NoError(t, c.Validate())
+
+			res := c.Run(ctx, recorder)
+			assert.Error(t, res.Error)
+			assert.Equal(t, err, res.Error)
+			assert.Zero(t, res.Iterations)
+			assert.True(t, res.CompletedAt.Sub(res.StartAt) < time.Millisecond)
+		})
 	})
 }
