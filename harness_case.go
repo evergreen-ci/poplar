@@ -310,7 +310,7 @@ benchLoop:
 	return *res
 }
 
-func (c *BenchmarkCase) satisfiedMinimumns(res *BenchmarkResult) bool {
+func (c *BenchmarkCase) satisfiedMinimums(res *BenchmarkResult) bool {
 	return c.satisfiedMinimumRuntime(res) && c.satisfiedMinimumIterations(res)
 }
 

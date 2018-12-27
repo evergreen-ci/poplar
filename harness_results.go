@@ -18,7 +18,7 @@ type BenchmarkResult struct {
 	Iterations   int           `bson:"iterations" json:"iterations" yaml:"iterations"`
 	ArtifactPath string        `bson:"path" json:"path" yaml:"path"`
 	StartAt      time.Time     `bson:"start_at" json:"start_at" yaml:"start_at"`
-	CompletedAt  time.Time     `bson:"compleated_at" json:"compleated_at" yaml:"compleated_at"`
+	CompletedAt  time.Time     `bson:"completed_at" json:"completed_at" yaml:"completed_at"`
 	Error        error         `bson:"-" json:"-" yaml:"-"`
 }
 
