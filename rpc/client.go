@@ -45,7 +45,7 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 					return errors.Wrap(err, "problem converting artifact")
 				}
 
-				if err := a.Upload(ctx, report.BucketConf); err != nil {
+				if err := a.Upload(ctx, &report.BucketConf); err != nil {
 					return errors.Wrap(err, "problem uploading artifact")
 				}
 			}

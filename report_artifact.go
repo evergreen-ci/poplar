@@ -23,6 +23,9 @@ func (a *TestArtifact) hasConversion() bool {
 	return a.ConvertBSON2FTDC || a.ConvertJSON2FTDC || a.ConvertCSV2FTDC || a.ConvertGzip
 }
 
+// Convert translates a the artifact into a different format,
+// typically by converting JSON, BSON, or CSV to FTDC, and also
+// optionally gzipping the results.
 func (a *TestArtifact) Convert(ctx context.Context) error {
 	if !a.hasConversion() {
 		return nil
@@ -71,7 +74,8 @@ func (a *TestArtifact) Convert(ctx context.Context) error {
 	return nil
 }
 
-func (a *TestArtifact) Upload(ctx context.Context, conf BucketConfiguration) error {
+// Upload provides a way to upload an artifact using a bucket configuration.
+func (a *TestArtifact) Upload(ctx context.Context, conf *BucketConfiguration) error {
 	if a.LocalFile == "" {
 		return errors.New("cannot upload unspecified file")
 	}
@@ -143,7 +147,7 @@ func (a *TestArtifact) bsonToFTDC(ctx context.Context, path string) (string, err
 			break
 		}
 
-		err = collector.Add(bsonDoc)
+		err = collector.Add(doc)
 		if err != nil {
 			catcher.Add(errors.Wrap(err, "failed to write FTDC from BSON"))
 			break
