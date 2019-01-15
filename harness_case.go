@@ -289,7 +289,7 @@ benchLoop:
 		switch {
 		case ctx.Err() != nil:
 			break benchLoop
-		case c.satisfiedMinimumns(res) || c.exceededMaximums(res):
+		case c.satisfiedMinimums(res) || c.exceededMaximums(res):
 			break benchLoop
 		default:
 			startAt := time.Now()

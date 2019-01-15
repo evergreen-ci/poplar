@@ -16,9 +16,11 @@ type BenchmarkResult struct {
 	Runtime      time.Duration `bson:"duration" json:"duration" yaml:"duration"`
 	Count        int           `bson:"count" json:"count" yaml:"count"`
 	Iterations   int           `bson:"iterations" json:"iterations" yaml:"iterations"`
+	Workload     bool          `bson:"workload" json:"workload" yaml:"workload"`
+	Instances    int           `bson:"instances,omitempty" json:"instances,omitempty" yaml:"instances,omitempty"`
 	ArtifactPath string        `bson:"path" json:"path" yaml:"path"`
 	StartAt      time.Time     `bson:"start_at" json:"start_at" yaml:"start_at"`
-	CompletedAt  time.Time     `bson:"completed_at" json:"completed_at" yaml:"completed_at"`
+	CompletedAt  time.Time     `bson:"compleated_at" json:"compleated_at" yaml:"compleated_at"`
 	Error        error         `bson:"-" json:"-" yaml:"-"`
 }
 
@@ -27,7 +29,7 @@ type BenchmarkResult struct {
 func (res *BenchmarkResult) Report() string {
 	out := []string{
 		"=== RUN", res.Name,
-		"    --- REPORT: " + fmt.Sprintf("count=%d, iters=%d, runtime=%s", res.Count, res.Iterations, roundDurationMS(res.Runtime)),
+		"    --- REPORT: " + fmt.Sprintf("count=%d, iters=%s, runtime=%s", res.Count, res.Iterations, roundDurationMS(res.Runtime)),
 	}
 
 	if res.Error != nil {
@@ -35,7 +37,7 @@ func (res *BenchmarkResult) Report() string {
 			fmt.Sprintf("    --- ERRORS: %s", res.Error.Error()),
 			fmt.Sprintf("--- FAIL: %s (%s)", res.Name, roundDurationMS(res.Runtime)))
 	} else {
-		out = append(out, fmt.Sprintf("--- PASS: %s (%s)", res.Name, roundDurationMS(res.Runtime)))
+		out = append(out, fmt.Sprintf("--- PASS: %s", res.Name, roundDurationMS(res.Runtime)))
 	}
 
 	return strings.Join(out, "\n")
@@ -44,9 +46,17 @@ func (res *BenchmarkResult) Report() string {
 // Export converts a benchmark result into a test structure to support
 // integration with cedar.
 func (res *BenchmarkResult) Export() Test {
-	out := Test{
+	t := Test{
 		CreatedAt:   res.StartAt,
 		CompletedAt: res.CompletedAt,
+		Artifacts: []TestArtifact{
+			{
+				LocalFile:        res.ArtifactPath,
+				PayloadFTDC:      true,
+				EventsRaw:        true,
+				DataUncompressed: true,
+			},
+		},
 		Info: TestInfo{
 			TestName: res.Name,
 			Tags:     []string{"poplar"},
@@ -57,22 +67,18 @@ func (res *BenchmarkResult) Export() Test {
 		},
 	}
 
-	if res.ArtifactPath != "" {
-		out.Artifacts = append(out.Artifacts, TestArtifact{
-			LocalFile:        res.ArtifactPath,
-			PayloadFTDC:      true,
-			EventsRaw:        true,
-			DataUncompressed: true,
-		})
+	if res.Workload {
+		t.Info.Tags = append(t.Info.Tags, "workload")
+		t.Info.Arguments["instances"] = int32(res.Instances)
 	}
 
-	return out
+	return t
 }
 
 // Composer produces a grip/message.Composer implementation that
 // allows for easy logging of a results object. The message's string
 // form is the same as Report, but also includes a structured raw format.
-func (res *BenchmarkResult) Composer() message.Composer { return &resultComposer{res: res} }
+func (res *BenchmarkResult) Composer() message.Composer { return nil }
 
 type resultComposer struct {
 	res          *BenchmarkResult `bson:"result" json:"result" yaml:"result"`
@@ -96,12 +102,12 @@ func (c *resultComposer) Raw() interface{} {
 	return c
 }
 
-// BenchmarkSuiteResults holds the result of a single suite of
+// BenchmarkResultGroup holds the result of a single suite of
 // benchmarks, and provides several helper methods.
-type BenchmarkSuiteResults []BenchmarkResult
+type BenchmarkResultGroup []BenchmarkResult
 
 // Report returns an aggregated report for all results.
-func (res BenchmarkSuiteResults) Report() string {
+func (res BenchmarkResultGroup) Report() string {
 	out := make([]string, len(res))
 
 	for idx := range res {
@@ -113,7 +119,7 @@ func (res BenchmarkSuiteResults) Report() string {
 
 // Composer returns a grip/message.Composer implementation that
 // aggregates Composers from all of the results.
-func (res BenchmarkSuiteResults) Composer() message.Composer {
+func (res BenchmarkResultGroup) Composer() message.Composer {
 	msgs := make([]message.Composer, len(res))
 
 	for idx, res := range res {
@@ -125,7 +131,7 @@ func (res BenchmarkSuiteResults) Composer() message.Composer {
 
 // Export converts a group of test results into a slice of tests in
 // preparation for uploading those results.
-func (res BenchmarkSuiteResults) Export() []Test {
+func (res BenchmarkResultGroup) Export() []Test {
 	out := make([]Test, len(res))
 	for idx, r := range res {
 		out[idx] = r.Export()

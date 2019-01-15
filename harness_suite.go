@@ -46,10 +46,10 @@ func (s *BenchmarkSuite) Add() *BenchmarkCase {
 //
 // The results data structure will always be populated even in the
 // event of an error.
-func (s BenchmarkSuite) Run(ctx context.Context, prefix string) (BenchmarkSuiteResults, error) {
+func (s BenchmarkSuite) Run(ctx context.Context, prefix string) (BenchmarkResultGroup, error) {
 	registry := NewRegistry()
 	catcher := grip.NewBasicCatcher()
-	res := BenchmarkSuiteResults{}
+	res := make(BenchmarkResultGroup, 0, len(s))
 
 	for _, test := range s {
 		name := test.Name()
@@ -84,7 +84,7 @@ func (s BenchmarkSuite) Run(ctx context.Context, prefix string) (BenchmarkSuiteR
 // Standard returns a go standard library benchmark function that you
 // can use to run an entire suite. The same recorder instance is
 // passed to each test case, which is run as a subtest.
-func (s BenchmarkSuite) Standard(registry *RecorderRegistry) func(b *testing.B) {
+func (s BenchmarkSuite) Standard(registry *RecorderRegistry) func(*testing.B) {
 	return func(b *testing.B) {
 		for _, test := range s {
 			b.Run(test.Name(), test.Standard(registry))
