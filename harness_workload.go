@@ -27,12 +27,12 @@ import (
 // the workload are specified,) sequentially, with no inter-workload
 // synchronization.
 type BenchmarkWorkload struct {
-	Name      string
-	Timeout   *time.Duration
-	Case      *BenchmarkCase
-	Group     []BenchmarkWorkload
-	Instances int
-	Recorder  RecorderType
+	WorkloadName    string
+	WorkloadTimeout *time.Duration
+	Case            *BenchmarkCase
+	Group           []*BenchmarkWorkload
+	Instances       int
+	Recorder        RecorderType
 }
 
 // Validate ensures that the workload is well formed. Additionally,
@@ -41,7 +41,7 @@ type BenchmarkWorkload struct {
 func (w *BenchmarkWorkload) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
-	if w.Timeout != nil && *w.Timeout < time.Millisecond {
+	if w.WorkloadTimeout != nil && w.Timeout() < time.Millisecond {
 		catcher.Add(errors.New("cannot specify timeout less than a millisecond"))
 	}
 
@@ -57,7 +57,7 @@ func (w *BenchmarkWorkload) Validate() error {
 		catcher.Add(errors.New("must define more than a single instance in a workload"))
 	}
 
-	if w.Name == "" {
+	if w.WorkloadName == "" && w.Case == nil {
 		catcher.Add(errors.New("must specify a name for a workload"))
 	}
 
@@ -74,6 +74,71 @@ func (w *BenchmarkWorkload) Validate() error {
 	return catcher.Resolve()
 }
 
+// Name returns the name of the workload as defined or the name of the
+// case if no name is defined.
+func (w *BenchmarkWorkload) Name() string {
+	if w.WorkloadName != "" {
+		return w.WorkloadName
+	}
+
+	if w.Case != nil {
+		return w.Case.Name()
+	}
+
+	return ""
+}
+
+// SetName makes it possible to set the name of the workload in a
+// chainable context.
+func (w *BenchmarkWorkload) SetName(n string) *BenchmarkWorkload { w.WorkloadName = n; return w }
+
+// Timeout returns the timeout for the workload, returning -1 when the
+// timeout is unset, and the value otherwise.
+func (w *BenchmarkWorkload) Timeout() time.Duration {
+	if w.WorkloadTimeout == nil {
+		return -1
+	}
+
+	return *w.WorkloadTimeout
+}
+
+// SetTimeout allows you to define a timeout for the workload as a
+// whole. Timeouts are not required and sub-cases or workloads will
+// are respected. Additionally, the validation method requires that
+// the timeout be greater than 1 millisecond.
+func (w *BenchmarkWorkload) SetTimeout(d time.Duration) *BenchmarkWorkload {
+	w.WorkloadTimeout = &d
+	return w
+}
+
+// SetInstances makes it possible to set the Instance value of the
+// workload in a chained context.
+func (w *BenchmarkWorkload) SetInstances(i int) *BenchmarkWorkload { w.Instances = i; return w }
+
+// SetRecorder overrides, the default event recorder type, which
+// allows you to change the way that intrarun data is collected and
+// allows you to use histogram data if needed for longer runs, and is
+// part of the BenchmarkCase's fluent interface.
+func (w *BenchmarkWorkload) SetRecorder(r RecorderType) *BenchmarkWorkload { w.Recorder = r; return w }
+
+// SetCase creates a case for the workload to run, returning it for
+// the caller to manipulate. This method also unsets the group.
+func (w *BenchmarkWorkload) SetCase() *BenchmarkCase {
+	w.Group = nil
+	c := &BenchmarkCase{}
+	w.Case = c
+	return c
+}
+
+// Add creates a new sub-workload, and adds it to the workload's
+// group. Add also unsets the case, if set.
+func (w *BenchmarkWorkload) Add() *BenchmarkWorkload {
+	w.Case = nil
+	out := &BenchmarkWorkload{}
+	w.Group = append(w.Group, out)
+	return out
+}
+
 // Run executes the workload, and has similar semantics to the
 // BenchmarkSuite implementation.
 func (w *BenchmarkWorkload) Run(ctx context.Context, prefix string) (BenchmarkResultGroup, error) {
@@ -81,8 +146,8 @@ func (w *BenchmarkWorkload) Run(ctx context.Context, prefix string) (BenchmarkRe
 	ctx, cancel = context.WithCancel(ctx)
 	defer cancel()
 
-	if w.Timeout != nil {
-		ctx, cancel = context.WithTimeout(ctx, *w.Timeout)
+	if w.WorkloadTimeout != nil {
+		ctx, cancel = context.WithTimeout(ctx, w.Timeout())
 		defer cancel()
 	}
 
@@ -95,7 +160,7 @@ func (w *BenchmarkWorkload) Run(ctx context.Context, prefix string) (BenchmarkRe
 	go func() {
 		defer func() {
 			catcher.Add(recovery.AnnotateMessageWithPanicError(recover(), nil, message.Fields{
-				"name":     w.Name,
+				"name":     w.Name(),
 				"op":       "collecting results",
 				"executor": "native",
 			}))
@@ -119,13 +184,13 @@ func (w *BenchmarkWorkload) Run(ctx context.Context, prefix string) (BenchmarkRe
 			defer func() {
 				catcher.Add(recovery.AnnotateMessageWithPanicError(recover(), nil, message.Fields{
 					"idx":      instanceIdx,
-					"name":     w.Name,
+					"name":     w.Name(),
 					"executor": "native",
 					"op":       "running workload",
 				}))
 			}()
 
-			name := fmt.Sprintf("%s.%d", w.Name, instanceIdx)
+			name := fmt.Sprintf("%s.%d", w.Name(), instanceIdx)
 			path := filepath.Join(prefix, name+".ftdc")
 			recorder, err := registry.Create(name, CreateOptions{
 				Path:      path,
@@ -194,7 +259,7 @@ func (w *BenchmarkWorkload) Standard(registry *RecorderRegistry) func(*testing.B
 				defer func() {
 					err := recovery.AnnotateMessageWithPanicError(recover(), nil, message.Fields{
 						"idx":      id,
-						"name":     w.Name,
+						"name":     w.Name(),
 						"op":       "running workload",
 						"executor": "standard",
 					})
@@ -205,12 +270,12 @@ func (w *BenchmarkWorkload) Standard(registry *RecorderRegistry) func(*testing.B
 				}()
 
 				if w.Case != nil {
-					b.Run(fmt.Sprintf("WorkloadCase%s%s#%d", w.Name, w.Case.Name(), id), w.Case.Standard(registry))
+					b.Run(fmt.Sprintf("WorkloadCase%s%s#%d", w.WorkloadName, w.Case.Name(), id), w.Case.Standard(registry))
 					return
 				}
 
 				for idx, wlg := range w.Group {
-					b.Run(fmt.Sprintf("WorkloadGroup%s%s%d#%d", w.Name, wlg.Name, idx, id), wlg.Standard(registry))
+					b.Run(fmt.Sprintf("WorkloadGroup%s%s%d#%d", w.WorkloadName, wlg.Name(), idx, id), wlg.Standard(registry))
 				}
 			}(i)
 		}

@@ -1,6 +1,7 @@
 // Package poplar provides a set of tools for running and managing
 // results for benchmarks in go.
 //
+//
 // Tools and Infrastructure
 //
 // The Report type defines infrastructure that any project can use to
@@ -11,6 +12,7 @@
 // Additionally, poplar defines some-local only RPC interfaces on top
 // of the github.com/mongodb/ftdc and github.com/mongodb/ftdc/events
 // packages to support generating data payloads in real time.
+//
 //
 // Report
 //
@@ -62,6 +64,7 @@
 //
 // See the documentation of the Report, Test, TestInfo, TestArtifact
 // and TestMetrics format for more information.
+//
 //
 // Benchmarks
 //
@@ -124,13 +127,40 @@
 // You can also run a benchmark suite using go's standard library, as
 // in:
 //
-//      registry := NewRegistry() // create recorder infra
+//      registry := NewRegistry() // create recorder recorder infrastructure
 //
 //      func BenchmarkHelloWorldSuite(b *testing.B) {
 //		suite.Standard(registry)(b)
 //      }
 //
 // Each test in the suite is reported as a seperate sub-benchmark.
+//
+//
+// Workloads
+//
+// In addition to suites, workloads provide a way to define
+// concurrent and parallel workloads that execute multiple instances
+// of a single test at a time. Workloads function like an extended
+// case of suites.
+//
+//	workload := &BenchmarkWorkload{
+//		Name:      "HelloWorld",
+//		Instances: 10,
+//		Recorder:  poplar.RecorderPerf,
+//		Case:      &BenchmarkCase{},
+//	}
+//
+// You must specify either a single case or a list of
+// sub-workloads. The executors for workloads run the groups of these
+// tests in parallel, with the degree of parallelism controlled by the
+// Instances value. When you specify a list of sub-workloads, poplar
+// will execute a group of these workloads in parallel, but the
+// workloads themselves are run sequentially, potentially with their
+// own parallelism.
+//
+// Benchmark suites and workloads both report data in the same
+// format. You can also execute workloads using the Standard method,
+// as with suites, using default Go methods for running benchmarks.
 package poplar
 
 // This file is intentionally documentation only.
