@@ -107,6 +107,8 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 			resp, err = client.AttachRollups(ctx, &internal.RollupData{Id: test.ID, Rollups: rollups})
 			if err != nil {
 				return errors.Wrapf(err, "problem attaching rollups for '%s'", test.ID)
+			} else if !resp.Success {
+				return errors.New("attaching rollups returned failed state")
 			}
 		}
 
@@ -129,7 +131,10 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 		resp, err = client.CloseMetrics(ctx, &internal.MetricsSeriesEnd{Id: test.ID, IsComplete: true, CompletedAt: completedAt})
 		if err != nil {
 			return errors.Wrapf(err, "problem closing metrics series for '%s'", test.ID)
+		} else if !resp.Success {
+			return errors.New("operation return failed state")
 		}
+
 	}
 
 	return nil
