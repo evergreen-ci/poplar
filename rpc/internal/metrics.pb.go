@@ -20,7 +20,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type IntervalSummary struct {
 	Collector string `protobuf:"bytes,1,opt,name=collector,proto3" json:"collector,omitempty"`
@@ -130,14 +130,116 @@ func (m *IntervalSummary) GetPointValues() *SummaryDoubleSlice {
 	return nil
 }
 
-// XXX_OneofWrappers is for the internal use of the proto package.
-func (*IntervalSummary) XXX_OneofWrappers() []interface{} {
-	return []interface{}{
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*IntervalSummary) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _IntervalSummary_OneofMarshaler, _IntervalSummary_OneofUnmarshaler, _IntervalSummary_OneofSizer, []interface{}{
 		(*IntervalSummary_Number)(nil),
 		(*IntervalSummary_NumberValues)(nil),
 		(*IntervalSummary_Point)(nil),
 		(*IntervalSummary_PointValues)(nil),
 	}
+}
+
+func _IntervalSummary_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*IntervalSummary)
+	// value
+	switch x := m.Value.(type) {
+	case *IntervalSummary_Number:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Number); err != nil {
+			return err
+		}
+	case *IntervalSummary_NumberValues:
+		b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.NumberValues); err != nil {
+			return err
+		}
+	case *IntervalSummary_Point:
+		b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Point); err != nil {
+			return err
+		}
+	case *IntervalSummary_PointValues:
+		b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.PointValues); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("IntervalSummary.Value has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _IntervalSummary_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*IntervalSummary)
+	switch tag {
+	case 2: // value.number
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(SummaryInteger)
+		err := b.DecodeMessage(msg)
+		m.Value = &IntervalSummary_Number{msg}
+		return true, err
+	case 3: // value.number_values
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(SummaryIntegerSlice)
+		err := b.DecodeMessage(msg)
+		m.Value = &IntervalSummary_NumberValues{msg}
+		return true, err
+	case 4: // value.point
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(SummaryDouble)
+		err := b.DecodeMessage(msg)
+		m.Value = &IntervalSummary_Point{msg}
+		return true, err
+	case 5: // value.point_values
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(SummaryDoubleSlice)
+		err := b.DecodeMessage(msg)
+		m.Value = &IntervalSummary_PointValues{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _IntervalSummary_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*IntervalSummary)
+	// value
+	switch x := m.Value.(type) {
+	case *IntervalSummary_Number:
+		s := proto.Size(x.Number)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *IntervalSummary_NumberValues:
+		s := proto.Size(x.NumberValues)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *IntervalSummary_Point:
+		s := proto.Size(x.Point)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *IntervalSummary_PointValues:
+		s := proto.Size(x.PointValues)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
 }
 
 type SummaryIntegerSlice struct {
