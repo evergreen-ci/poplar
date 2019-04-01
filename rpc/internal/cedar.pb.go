@@ -10,6 +10,8 @@ import (
 	duration "github.com/golang/protobuf/ptypes/duration"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -22,7 +24,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type StorageLocation int32
 
@@ -1028,68 +1030,12 @@ func (m *RollupValue) GetUserSubmitted() bool {
 	return false
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*RollupValue) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RollupValue_OneofMarshaler, _RollupValue_OneofUnmarshaler, _RollupValue_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*RollupValue) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*RollupValue_Int)(nil),
 		(*RollupValue_Fl)(nil),
 	}
-}
-
-func _RollupValue_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RollupValue)
-	// value
-	switch x := m.Value.(type) {
-	case *RollupValue_Int:
-		b.EncodeVarint(2<<3 | proto.WireVarint)
-		b.EncodeVarint(uint64(x.Int))
-	case *RollupValue_Fl:
-		b.EncodeVarint(3<<3 | proto.WireFixed64)
-		b.EncodeFixed64(math.Float64bits(x.Fl))
-	case nil:
-	default:
-		return fmt.Errorf("RollupValue.Value has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _RollupValue_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RollupValue)
-	switch tag {
-	case 2: // value.int
-		if wire != proto.WireVarint {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeVarint()
-		m.Value = &RollupValue_Int{int64(x)}
-		return true, err
-	case 3: // value.fl
-		if wire != proto.WireFixed64 {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeFixed64()
-		m.Value = &RollupValue_Fl{math.Float64frombits(x)}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _RollupValue_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RollupValue)
-	// value
-	switch x := m.Value.(type) {
-	case *RollupValue_Int:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(x.Int))
-	case *RollupValue_Fl:
-		n += 1 // tag and wire
-		n += 8
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 type ArtifactData struct {
@@ -1421,6 +1367,29 @@ type CedarPerformanceMetricsServer interface {
 	AttachRollups(context.Context, *RollupData) (*MetricsResponse, error)
 	SendMetrics(CedarPerformanceMetrics_SendMetricsServer) error
 	CloseMetrics(context.Context, *MetricsSeriesEnd) (*MetricsResponse, error)
+}
+
+// UnimplementedCedarPerformanceMetricsServer can be embedded to have forward compatible implementations.
+type UnimplementedCedarPerformanceMetricsServer struct {
+}
+
+func (*UnimplementedCedarPerformanceMetricsServer) CreateMetricSeries(ctx context.Context, req *ResultData) (*MetricsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateMetricSeries not implemented")
+}
+func (*UnimplementedCedarPerformanceMetricsServer) AttachResultData(ctx context.Context, req *ResultData) (*MetricsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AttachResultData not implemented")
+}
+func (*UnimplementedCedarPerformanceMetricsServer) AttachArtifacts(ctx context.Context, req *ArtifactData) (*MetricsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AttachArtifacts not implemented")
+}
+func (*UnimplementedCedarPerformanceMetricsServer) AttachRollups(ctx context.Context, req *RollupData) (*MetricsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AttachRollups not implemented")
+}
+func (*UnimplementedCedarPerformanceMetricsServer) SendMetrics(srv CedarPerformanceMetrics_SendMetricsServer) error {
+	return status.Errorf(codes.Unimplemented, "method SendMetrics not implemented")
+}
+func (*UnimplementedCedarPerformanceMetricsServer) CloseMetrics(ctx context.Context, req *MetricsSeriesEnd) (*MetricsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CloseMetrics not implemented")
 }
 
 func RegisterCedarPerformanceMetricsServer(s *grpc.Server, srv CedarPerformanceMetricsServer) {
