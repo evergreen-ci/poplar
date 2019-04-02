@@ -92,7 +92,7 @@ func (a *TestArtifact) Validate() error {
 
 	if a.ConvertCSV2FTDC {
 		a.PayloadFTDC = true
-
+		a.DataGzipped = true
 	}
 
 	if a.ConvertBSON2FTDC {
