@@ -67,7 +67,7 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 			for _, a := range test.Artifacts {
 				if a.LocalFile != "" {
 					if err = a.Validate(); err != nil {
-						return errors.Wrap(err, "problem validating artificat")
+						return errors.Wrap(err, "problem validating artifact")
 					}
 
 					if a.Path == "" {
