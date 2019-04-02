@@ -98,6 +98,7 @@ func (a *TestArtifact) Validate() error {
 	if a.ConvertBSON2FTDC {
 		a.PayloadBSON = false
 		a.PayloadFTDC = true
+		a.DataGzipped = true
 	}
 
 	if isMoreThanOneTrue([]bool{a.ConvertBSON2FTDC, a.ConvertCSV2FTDC, a.ConvertJSON2FTDC}) {
