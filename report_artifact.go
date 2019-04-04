@@ -101,7 +101,7 @@ func (a *TestArtifact) Upload(ctx context.Context, conf *BucketConfiguration) er
 			Name:       a.Bucket,
 			Region:     conf.Region,
 			Prefix:     conf.Prefix,
-			Permission: conf.Permission,
+			Permission: conf.Permissions,
 		}
 		if (conf.APIKey != "" && conf.APISecret != "") || conf.APIToken != "" {
 			opts.Credentials = pail.CreateAWSCredentials(conf.APIKey, conf.APISecret, conf.APIToken)
