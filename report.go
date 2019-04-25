@@ -102,7 +102,7 @@ func (a *TestArtifact) Validate() error {
 		a.PayloadFTDC = true
 	}
 
-	if isMoreThanOneTrue([]bool{a.ConvertBSON2FTDC, a.ConvertCSV2FTDC, a.ConvertJSON2FTDC}) {
+	if isMoreThanOneTrue([]bool{a.ConvertBSON2FTDC, a.ConvertCSV2FTDC, a.ConvertJSON2FTDC, a.ConvertGzip}) {
 		catcher.Add(errors.New("cannot specify contradictory conversion requests"))
 	}
 
