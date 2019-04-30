@@ -67,19 +67,19 @@ endif
 benchPattern := ./
 
 compile:
-	go build $(packages)
+	$(gobin) build $(packages)
 race:
 	@mkdir -p $(buildDir)
-	go test $(testArgs) -race $(packages) | tee $(buildDir)/race.poplar.out
+	$(gobin) test $(testArgs) -race $(packages) | tee $(buildDir)/race.poplar.out
 	@grep -s -q -e "^PASS" $(buildDir)/race.poplar.out && ! grep -s -q "^WARNING: DATA RACE" $(buildDir)/race.poplar.out
 test:
 	@mkdir -p $(buildDir)
-	go test $(testArgs) $(if $(DISABLE_COVERAGE),, -cover) $(packages) | tee $(buildDir)/test.poplar.out
+	$(gobin) test $(testArgs) $(if $(DISABLE_COVERAGE),, -cover) $(packages) | tee $(buildDir)/test.poplar.out
 	@grep -s -q -e "^PASS" $(buildDir)/test.poplar.out
 .PHONY: benchmark
 benchmark:
 	@mkdir -p $(buildDir)
-	go test $(testArgs) -bench=$(benchPattern) $(if $(RUN_TEST),, -run=^^$$) | tee $(buildDir)/bench.poplar.out
+	$(gobin) test $(testArgs) -bench=$(benchPattern) $(if $(RUN_TEST),, -run=^^$$) | tee $(buildDir)/bench.poplar.out
 coverage:$(buildDir)/cover.out
 	@go tool cover -func=$< | sed -E 's%github.com/.*/jasper/%%' | column -t
 coverage-html:$(buildDir)/cover.html
@@ -93,9 +93,9 @@ phony += lint lint-deps build build-race race test coverage coverage-html
 $(buildDir):$(srcFiles) compile
 	@mkdir -p $@
 $(buildDir)/cover.out:$(buildDir) $(testFiles) .FORCE
-	go test $(testArgs) -coverprofile $@ -cover $(packages)
+	$(gobin) test $(testArgs) -coverprofile $@ -cover $(packages)
 $(buildDir)/cover.html:$(buildDir)/cover.out
-	go tool cover -html=$< -o $@
+	$(gobin) tool cover -html=$< -o $@
 #  targets to generate gotest output from the linter.
 $(buildDir)/output.%.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
 	@./$< --output=$@ --lintArgs='$(lintArgs)' --packages='$*'
