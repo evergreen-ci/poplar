@@ -14,7 +14,10 @@ variables:
       - command: git.get_project
         type: system
         params:
+          optional: true
           directory: gopath/src/github.com/evergreen-ci/poplar
+          aws_key: ${aws_key}
+          aws_secret: ${aws_secret}
       - func: run-make
         vars: { target: "${task_name}" }
 
