@@ -16,6 +16,8 @@ imports:
     version: 890a5c3458b43e6104ff5da8dfa139d013d77544
   - name: gopkg.in/yaml.v2
     version: 25c4ec802a7d637f88d584ab26798e94ad14c13b
+  - name: github.com/papertrail/go-tail
+    version: 973c153b04319fc4604d847b09861a5730cbbde2
 
   # grpc and dependencies
   - name: google.golang.org/grpc
