@@ -11,3 +11,4 @@ import:
   - package: github.com/mongodb/ftdc
   - package: github.com/pkg/errors
   - package: github.com/stretcher/testify
+  - package: gopkg.in/yaml.v2
