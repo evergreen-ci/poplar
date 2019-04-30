@@ -143,7 +143,7 @@ buildvariants:
     expansions:
       mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.1.tgz
       goroot: /opt/golang/go1.9
-      gobin: /opt/golang/go1.9/go/bin
+      gobin: /opt/golang/go1.9/bin/go
       disable_coverage: true
     run_on:
       - ubuntu1604-test
@@ -155,7 +155,7 @@ buildvariants:
     expansions:
       mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.1.tgz
       goroot: /opt/golang/go1.9
-      gobin: /opt/golang/go1.9/go/bin
+      gobin: /opt/golang/go1.9/bin/go
       disable_coverage: true
     run_on:
       - macos-1012
@@ -169,7 +169,7 @@ buildvariants:
     expansions:
       mongodb_url: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-4.0.1.zip
       goroot: c:/golang/go1.9/go
-      gobin: /cygdrive/c/golang/go1.9/go/bin
+      gobin: /cygdrive/c/golang/go1.9/bin/go
       disable_coverage: true
       extension: ".exe"
       archiveExt: ".zip"
