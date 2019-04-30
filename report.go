@@ -123,7 +123,7 @@ func (a *TestArtifact) Validate() error {
 		catcher.Add(errors.New("must specify exactly one file format type"))
 	}
 
-	if isMoreThanOneTrue([]bool{a.tventsCollapsed, a.EventsHistogram, a.EventsIntervalSummary, a.EventsRaw}) {
+	if isMoreThanOneTrue([]bool{a.EventsCollapsed, a.EventsHistogram, a.EventsIntervalSummary, a.EventsRaw}) {
 		catcher.Add(errors.New("must specify exactly one event format type"))
 	}
 
