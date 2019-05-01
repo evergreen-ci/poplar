@@ -28,28 +28,28 @@ functions:
     command: shell.exec
     type: setup
     params:
-       silent: true
-       script: |
-         mkdir ~/.aws
-         cat <<EOF > ~/.aws/config
-         [default]
-         region = us-east-1
-         EOF
-         cat <<EOF > ~/.aws/credentials
-         [default]
-         aws_access_key_id = ${aws_key}
-         aws_secret_access_key = ${aws_secret}
-         EOF
+      silent: true
+      script: |
+        mkdir ~/.aws
+        cat <<EOF > ~/.aws/config
+        [default]
+        region = us-east-1
+        EOF
+        cat <<EOF > ~/.aws/credentials
+        [default]
+        aws_access_key_id = ${aws_key}
+        aws_secret_access_key = ${aws_secret}
+        EOF
   run-make:
     command: subprocess.exec
     type: test
     params:
       script: |
+        # on windows we need to turn the slashes the other way
+        if [ "Windows_NT" == "$OS" ]; then
+           export GOPATH=$(cygpath -m $GOPATH)
+        fi
       working_dir: gopath/src/github.com/evergreen-ci/poplar
-         # on windows we need to turn the slashes the other way
-         if [ "Windows_NT" == "$OS" ]; then
-            export GOPATH=$(cygpath -m $GOPATH)
-         fi
       binary: make
       args: ["${make_args|}", "${target}"]
       env:
