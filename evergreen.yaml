@@ -111,6 +111,7 @@ tasks:
         type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/poplar
+      - func: setup-credentials
       - func: run-make
         vars:
           target: "coverage-html"
