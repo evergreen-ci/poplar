@@ -1,9 +1,9 @@
-name := poplar
 buildDir := build
 srcFiles := $(shell find . -name "*.go" -not -path "./$(buildDir)/*" -not -name "*_test.go" -not -path "*\#*")
 testFiles := $(shell find . -name "*.go" -not -path "./$(buildDir)/*" -not -path "*\#*")
 
-packages := $(name) rpc rpc-internal
+packages := ./ ./rpc ./rpc/internal
+lintPackages := poplar rpc rpc-internal
 # override the go binary path if set
 ifneq (,$(GO_BIN_PATH))
 gobin := $(GO_BIN_PATH)
@@ -84,26 +84,26 @@ endif
 benchPattern := ./
 
 compile:
-	$(gobin) build $(packages)
+	$(gobin) build ./
 race:
 	@mkdir -p $(buildDir)
 	$(gobin) test $(testArgs) -race $(packages) | tee $(buildDir)/race.poplar.out
-	@grep -s -q -e "^PASS" $(buildDir)/race.poplar.out && ! grep -s -q "^WARNING: DATA RACE" $(buildDir)/race.poplar.out
+	@grep -s -q -e "^PASS" $(buildDir)/race.poplar.out && ! grep -s -q "^WARNING: DATA RACE" $(buildDir)/race.out
 test:
 	@mkdir -p $(buildDir)
-	$(gobin) test $(testArgs) $(if $(DISABLE_COVERAGE),, -cover) $(packages) | tee $(buildDir)/test.poplar.out
+	$(gobin) test $(testArgs) $(if $(DISABLE_COVERAGE),, -cover) $(packages) | tee $(buildDir)/test.out
 	@grep -s -q -e "^PASS" $(buildDir)/test.poplar.out
 .PHONY: benchmark
 benchmark:
 	@mkdir -p $(buildDir)
-	$(gobin) test $(testArgs) -bench=$(benchPattern) $(if $(RUN_TEST),, -run=^^$$) | tee $(buildDir)/bench.poplar.out
+	$(gobin) test $(testArgs) -bench=$(benchPattern) $(if $(RUN_TEST),, -run=^^$$) | tee $(buildDir)/bench.out
 coverage:$(buildDir)/cover.out
 	@go tool cover -func=$< | sed -E 's%github.com/.*/jasper/%%' | column -t
 coverage-html:$(buildDir)/cover.html
-lint:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
+lint:$(foreach target,$(lintPackages),$(buildDir)/output.$(target).lint)
 
 phony += lint lint-deps build build-race race test coverage coverage-html
-.PRECIOUS:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
+.PRECIOUS:$(foreach target,$(lintPackages),$(buildDir)/output.$(target).lint)
 .PRECIOUS:$(buildDir)/output.lint
 
 
@@ -117,10 +117,9 @@ $(buildDir)/cover.html:$(buildDir)/cover.out
 $(buildDir)/output.%.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
 	@./$< --output=$@ --lintArgs='$(lintArgs)' --packages='$*'
 $(buildDir)/output.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
-	@./$< --output="$@" --lintArgs='$(lintArgs)' --packages="$(packages)"
+	@./$< --output="$@" --lintArgs='$(lintArgs)' --packages="$(lintPackages)"
 #  targets to process and generate coverage reports
 # end test and coverage artifacts
-#
 
 .FORCE:
 
