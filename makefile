@@ -21,8 +21,8 @@ lintDeps := github.com/alecthomas/gometalinter
 lintArgs := --tests --deadline=13m --vendor
 #   gotype produces false positives because it reads .a files which
 #   are rarely up to date.
-lintArgs += --disable="gotype" --disable="gosec" --disable="gocyclo" --disable="golint"
-lingArgs += --disable="staticcheck"
+lintArgs += --disable="gotype" --disable="gosec" --disable="gocyclo" --disable="golint" 
+lintArgs += --disable="staticcheck"
 lintArgs += --skip="build"
 lintArgs += --exclude="rpc/internal/.*.pb.go"
 #   enable and configure additional linters
@@ -84,7 +84,7 @@ endif
 benchPattern := ./
 
 compile:
-	$(gobin) build ./
+	$(gobin) build $(packages)
 race:
 	@mkdir -p $(buildDir)
 	$(gobin) test $(testArgs) -race $(packages) | tee $(buildDir)/race.out
