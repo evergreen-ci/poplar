@@ -87,12 +87,12 @@ compile:
 	$(gobin) build ./
 race:
 	@mkdir -p $(buildDir)
-	$(gobin) test $(testArgs) -race $(packages) | tee $(buildDir)/race.poplar.out
-	@grep -s -q -e "^PASS" $(buildDir)/race.poplar.out && ! grep -s -q "^WARNING: DATA RACE" $(buildDir)/race.out
+	$(gobin) test $(testArgs) -race $(packages) | tee $(buildDir)/race.out
+	@grep -s -q -e "^PASS" $(buildDir)/race.out && ! grep -s -q "^WARNING: DATA RACE" $(buildDir)/race.out
 test:
 	@mkdir -p $(buildDir)
 	$(gobin) test $(testArgs) $(if $(DISABLE_COVERAGE),, -cover) $(packages) | tee $(buildDir)/test.out
-	@grep -s -q -e "^PASS" $(buildDir)/test.poplar.out
+	@grep -s -q -e "^PASS" $(buildDir)/test.out
 .PHONY: benchmark
 benchmark:
 	@mkdir -p $(buildDir)
