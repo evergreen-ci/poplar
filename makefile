@@ -22,7 +22,7 @@ lintArgs := --tests --deadline=13m --vendor
 #   gotype produces false positives because it reads .a files which
 #   are rarely up to date.
 lintArgs += --disable="gotype" --disable="gosec" --disable="gocyclo" --enable="golint"
-lintArgs += --enable="megacheck" --enable="unused" --enable="gosimple"
+lingArgs += --disable="staticcheck"
 lintArgs += --skip="build"
 #   enable and configure additional linters
 lintArgs += --line-length=100 --dupl-threshold=150
@@ -43,15 +43,30 @@ lintArgs += --exclude="error return value not checked .defer.*"
 # start dependency installation tools
 #   implementation details for being able to lazily install dependencies
 gopath := $(shell $(gobin) env GOPATH)
-lintDeps := $(addprefix $(gopath)/src/,$(lintDeps))
 $(gopath)/src/%:
 	@-[ ! -d $(gopath) ] && mkdir -p $(gopath) || true
 	$(gobin) get $(subst $(gopath)/src/,,$@)
-$(buildDir)/run-linter:cmd/run-linter/run-linter.go $(buildDir)/.lintSetup
-	 $(gobin) build -o $@ $<
-$(buildDir)/.lintSetup:$(lintDeps)
-	@-$(gopath)/bin/gometalinter --install >/dev/null && touch $@
 # end dependency installation tools
+
+# lint setup targets
+lintDeps := $(addprefix $(gopath)/src/,$(lintDeps))
+$(buildDir)/.lintSetup:$(lintDeps)
+	@mkdir -p $(buildDir)
+	$(gopath)/bin/gometalinter --force --install >/dev/null && touch $@
+$(buildDir)/run-linter:cmd/run-linter/run-linter.go $(buildDir)/.lintSetup
+	@mkdir -p $(buildDir)
+	$(gobin) build -o $@ $<
+
+# end lint setup targets
+
+# generate lint JSON document for evergreen
+generate-lint:$(buildDir)/generate-lint.json
+$(buildDir)/generate-lint.json:$(buildDir)/generate-lint $(srcFiles)
+	./$(buildDir)/generate-lint
+$(buildDir)/generate-lint:cmd/generate-lint/generate-lint.go
+	$(gobin) build -o $@ $<
+# end generate lint
+
 
 testArgs := -v
 ifneq (,$(RUN_TEST))
