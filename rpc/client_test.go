@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -50,7 +51,9 @@ func (mc *mockClient) CloseMetrics(_ context.Context, in *internal.MetricsSeries
 
 func TestClient(t *testing.T) {
 	ctx := context.TODO()
-	s3Name := "build-test-curator"
+	testdataDir := filepath.Join("..", "testdata")
+	//s3Name := "build-test-curator"
+	s3Name := "pail-bucket-test"
 	s3Prefix := "poplar-client-test"
 	s3Opts := pail.S3Options{
 		Name:   s3Name,
@@ -86,14 +89,14 @@ func TestClient(t *testing.T) {
 						Bucket:           s3Name,
 						Prefix:           s3Prefix,
 						Path:             "bson_example.ftdc",
-						LocalFile:        "../testdata/bson_example.bson",
+						LocalFile:        filepath.Join(testdataDir, "bson_example.bson"),
 						ConvertBSON2FTDC: true,
 					},
 					{
 						Bucket:      s3Name,
 						Prefix:      s3Prefix,
 						Path:        "bson_example.bson.gz",
-						LocalFile:   "../testdata/bson_example.bson",
+						LocalFile:   filepath.Join(testdataDir, "bson_example.bson"),
 						ConvertGzip: true,
 					},
 				},
@@ -130,7 +133,7 @@ func TestClient(t *testing.T) {
 						Bucket:           s3Name,
 						Prefix:           s3Prefix,
 						Path:             "json_example.ftdc",
-						LocalFile:        "../testdata/json_example.json",
+						LocalFile:        filepath.Join(testdataDir, "json_example.json"),
 						CreatedAt:        time.Date(2018, time.July, 4, 11, 59, 0, 0, time.UTC),
 						ConvertJSON2FTDC: true,
 					},
@@ -178,7 +181,7 @@ func TestClient(t *testing.T) {
 		for _, test := range expectedTests {
 			for _, artifact := range test.Artifacts {
 				assert.NoError(t, s3Bucket.Remove(ctx, artifact.Path))
-				assert.NoError(t, os.RemoveAll(filepath.Join("../testdata", artifact.Path)))
+				assert.NoError(t, os.RemoveAll(filepath.Join(testdataDir, artifact.Path)))
 			}
 		}
 	}()
@@ -220,7 +223,7 @@ func TestClient(t *testing.T) {
 			require.NoError(t, err)
 			remoteData, err := ioutil.ReadAll(r)
 			require.NoError(t, err)
-			f, err := os.Open(filepath.Join("../testdata/", artifact.Path))
+			f, err := os.Open(filepath.Join(testdataDir, artifact.Path))
 			require.NoError(t, err)
 			localData, err := ioutil.ReadAll(f)
 			require.NoError(t, err)
@@ -232,4 +235,11 @@ func TestClient(t *testing.T) {
 			assert.Equal(t, internal.ExportRollup(&metric), result.Rollups[k])
 		}
 	}
+	//TODO: REMOVE
+	files, err := ioutil.ReadDir(testdataDir)
+	require.NoError(t, err)
+	for _, file := range files {
+		fmt.Println(file.Name())
+	}
+
 }
