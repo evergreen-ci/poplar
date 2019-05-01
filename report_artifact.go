@@ -74,13 +74,13 @@ func (a *TestArtifact) Convert(ctx context.Context) error {
 // Upload provides a way to upload an artifact using a bucket configuration.
 func (a *TestArtifact) Upload(ctx context.Context, conf *BucketConfiguration) error {
 	if a.LocalFile == "" {
-		return errors.New("cannot upload unspecified file!")
+		return errors.New("cannot upload unspecified file")
 	}
 	if a.Path == "" {
-		return errors.New("must specify remote path!")
+		return errors.New("must specify remote path")
 	}
 	if conf == nil {
-		return errors.New("bucket configruation cannot be nil!")
+		return errors.New("bucket configruation cannot be nil")
 	}
 
 	var err error
@@ -91,10 +91,10 @@ func (a *TestArtifact) Upload(ctx context.Context, conf *BucketConfiguration) er
 
 	if conf.bucket == nil || conf.name != a.Bucket || conf.prefix != a.Prefix {
 		if a.Bucket == "" {
-			return errors.New("cannot upload file, no bucket specified!")
+			return errors.New("cannot upload file, no bucket specified")
 		}
 		if conf.Region == "" {
-			return errors.New("bucket configuration must specify a region!")
+			return errors.New("bucket configuration must specify a region")
 		}
 
 		opts := pail.S3Options{

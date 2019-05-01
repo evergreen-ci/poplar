@@ -71,8 +71,8 @@ type TestArtifact struct {
 	PayloadTEXT           bool      `bson:"is_text,omitempty" json:"is_text,omitempty" yaml:"is_text,omitempty"`
 	PayloadFTDC           bool      `bson:"is_ftdc,omitempty" json:"is_ftdc,omitempty" yaml:"is_ftdc,omitempty"`
 	PayloadBSON           bool      `bson:"is_bson,omitempty" json:"is_bson,omitempty" yaml:"is_bson,omitempty"`
-	PayloadJSON           bool      `bson:"is_json",omitempty json:"is_json",omitempty" yaml:"is_json",omitempty"`
-	PayloadCSV            bool      `bson:"is_csv",omitempty json:"is_csv",omitempty" yaml:"is_csv",omitempty"`
+	PayloadJSON           bool      `bson:"is_json,omitempty" json:"is_json,omitempty" yaml:"is_json,omitempty"`
+	PayloadCSV            bool      `bson:"is_csv,omitempty" json:"is_csv,omitempty" yaml:"is_csv,omitempty"`
 	DataUncompressed      bool      `bson:"is_uncompressed" json:"is_uncompressed" yaml:"is_uncompressed"`
 	DataGzipped           bool      `bson:"is_gzip,omitempty" json:"is_gzip,omitempty" yaml:"is_gzip,omitempty"`
 	DataTarball           bool      `bson:"is_tarball,omitempty" json:"is_tarball,omitempty" yaml:"is_tarball,omitempty"`

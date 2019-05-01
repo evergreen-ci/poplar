@@ -3,7 +3,7 @@ buildDir := build
 srcFiles := $(shell find . -name "*.go" -not -path "./$(buildDir)/*" -not -name "*_test.go" -not -path "*\#*")
 testFiles := $(shell find . -name "*.go" -not -path "./$(buildDir)/*" -not -path "*\#*")
 
-packages := ./ ./rpc ./rpc/internal
+packages := $(name) rpc rpc-internal
 # override the go binary path if set
 ifneq (,$(GO_BIN_PATH))
 gobin := $(GO_BIN_PATH)
@@ -21,9 +21,10 @@ lintDeps := github.com/alecthomas/gometalinter
 lintArgs := --tests --deadline=13m --vendor
 #   gotype produces false positives because it reads .a files which
 #   are rarely up to date.
-lintArgs += --disable="gotype" --disable="gosec" --disable="gocyclo" --enable="golint"
+lintArgs += --disable="gotype" --disable="gosec" --disable="gocyclo" --disable="golint"
 lingArgs += --disable="staticcheck"
 lintArgs += --skip="build"
+lintArgs += --exclude="rpc/internal/.*.pb.go"
 #   enable and configure additional linters
 lintArgs += --line-length=100 --dupl-threshold=150
 #   some test cases are structurally similar, and lead to dupl linter
@@ -37,6 +38,7 @@ lintArgs += --exclude="warning: package comment should be of the form \"Package 
 #   known issues that the linter picks up that are not relevant in our cases
 lintArgs += --exclude="file is not goimported" # top-level mains aren't imported
 lintArgs += --exclude="error return value not checked .defer.*"
+lintArgs += --exclude="deadcode"
 # end linting configuration
 
 
