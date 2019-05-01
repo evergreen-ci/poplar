@@ -14,7 +14,7 @@ variables:
       - command: git.get_project
         type: system
         params:
-          directory: src
+          directory: gopath/src/github.com/evergreen-ci/poplar
       - func: setup-credentials
       - func: run-make
         vars: { target: "${task_name}" }
