@@ -222,6 +222,14 @@ func TestClient(t *testing.T) {
 			require.NoError(t, err)
 			remoteData, err := ioutil.ReadAll(r)
 			require.NoError(t, err)
+
+			//TODO: REMOVE
+			files, err := ioutil.ReadDir(testdataDir)
+			require.NoError(t, err)
+			for _, file := range files {
+				fmt.Println(file.Name())
+			}
+
 			f, err := os.Open(filepath.Join(testdataDir, artifact.Path))
 			require.NoError(t, err)
 			localData, err := ioutil.ReadAll(f)
@@ -233,12 +241,6 @@ func TestClient(t *testing.T) {
 		for k, metric := range expectedTests[i].Metrics {
 			assert.Equal(t, internal.ExportRollup(&metric), result.Rollups[k])
 		}
-	}
-	//TODO: REMOVE
-	files, err := ioutil.ReadDir(testdataDir)
-	require.NoError(t, err)
-	for _, file := range files {
-		fmt.Println(file.Name())
 	}
 
 }
