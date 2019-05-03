@@ -39,7 +39,8 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 		}
 
 		if !dryRun {
-			resp, err := client.CreateMetricSeries(ctx, &internal.ResultData{
+			var resp *internal.MetricsResponse
+			resp, err = client.CreateMetricSeries(ctx, &internal.ResultData{
 				Id: &internal.ResultID{
 					Project:   report.Project,
 					Version:   report.Version,
@@ -80,7 +81,8 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 		}
 
 		if !dryRun {
-			resp, err := client.CloseMetrics(ctx, &internal.MetricsSeriesEnd{Id: test.ID, IsComplete: true, CompletedAt: completedAt})
+			var resp *internal.MetricsResponse
+			resp, err = client.CloseMetrics(ctx, &internal.MetricsSeriesEnd{Id: test.ID, IsComplete: true, CompletedAt: completedAt})
 			if err != nil {
 				return errors.Wrapf(err, "problem closing metrics series for '%s'", test.ID)
 			} else if !resp.Success {
