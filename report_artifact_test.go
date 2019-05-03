@@ -2,7 +2,6 @@ package poplar
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -338,10 +337,6 @@ func TestUpload(t *testing.T) {
 					require.NoError(t, err)
 					r, err := bucket.Get(ctx, test.artifact.Path)
 					if dryRun {
-						if err == nil {
-							fmt.Println(test.name)
-							fmt.Println(test.artifact.Path)
-						}
 						require.Error(t, err)
 					} else {
 
