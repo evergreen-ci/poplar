@@ -2,6 +2,7 @@ package poplar
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -116,7 +117,8 @@ func TestConvert(t *testing.T) {
 func TestUpload(t *testing.T) {
 	ctx := context.TODO()
 
-	s3Name := "build-test-curator"
+	//s3Name := "build-test-curator"
+	s3Name := "pail-bucket-test"
 	s3Prefix := "poplar-test"
 	s3Region := "us-east-1"
 	s3Opts := pail.S3Options{
@@ -128,11 +130,12 @@ func TestUpload(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, test := range []struct {
-		name       string
-		artifact   *TestArtifact
-		bucketConf *BucketConfiguration
-		newBucket  bool
-		hasErr     bool
+		name        string
+		artifact    *TestArtifact
+		bucketConf  *BucketConfiguration
+		dryRunNoErr bool
+		newBucket   bool
+		hasErr      bool
 	}{
 		{
 			name: "NoLocalFile",
@@ -213,7 +216,8 @@ func TestUpload(t *testing.T) {
 				APISecret: "asdf",
 				Region:    s3Region,
 			},
-			hasErr: true,
+			dryRunNoErr: true,
+			hasErr:      true,
 		},
 		{
 			name: "BadCredentialsToken",
@@ -234,7 +238,7 @@ func TestUpload(t *testing.T) {
 			artifact: &TestArtifact{
 				Bucket:    s3Name,
 				Prefix:    s3Prefix,
-				Path:      "bson_example.bson",
+				Path:      "bson_example1.bson",
 				LocalFile: "testdata/bson_example.bson",
 			},
 			bucketConf: &BucketConfiguration{
@@ -249,7 +253,7 @@ func TestUpload(t *testing.T) {
 			artifact: &TestArtifact{
 				Bucket:    s3Name,
 				Prefix:    s3Prefix,
-				Path:      "bson_example.bson",
+				Path:      "bson_example2.bson",
 				LocalFile: "testdata/bson_example.bson",
 			},
 			bucketConf: &BucketConfiguration{
@@ -262,7 +266,7 @@ func TestUpload(t *testing.T) {
 			artifact: &TestArtifact{
 				Bucket:    s3Name,
 				Prefix:    s3Prefix,
-				Path:      "bson_example.bson",
+				Path:      "bson_example3.bson",
 				LocalFile: "testdata/bson_example.bson",
 			},
 			bucketConf: &BucketConfiguration{
@@ -277,7 +281,7 @@ func TestUpload(t *testing.T) {
 			artifact: &TestArtifact{
 				Bucket:    s3Name,
 				Prefix:    "differentPrefix",
-				Path:      "bson_example.bson",
+				Path:      "bson_example4.bson",
 				LocalFile: "testdata/bson_example.bson",
 			},
 			bucketConf: &BucketConfiguration{
@@ -291,46 +295,67 @@ func TestUpload(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if test.hasErr {
-				require.Error(t, test.artifact.Upload(ctx, test.bucketConf))
+				if !test.dryRunNoErr {
+					require.Error(t, test.artifact.Upload(ctx, test.bucketConf, true))
+				}
+				require.Error(t, test.artifact.Upload(ctx, test.bucketConf, false))
 			} else {
-				defer func() {
-					assert.NoError(t, test.bucketConf.bucket.Remove(ctx, test.artifact.Path))
-				}()
+				for _, dryRun := range []bool{true, false} {
+					bucketConf := &BucketConfiguration{
+						APIKey:    test.bucketConf.APIKey,
+						APISecret: test.bucketConf.APISecret,
+						APIToken:  test.bucketConf.APIToken,
+						Region:    test.bucketConf.Region,
+						name:      test.bucketConf.name,
+						prefix:    test.bucketConf.prefix,
+						bucket:    test.bucketConf.bucket,
+					}
+					require.NoError(t, test.artifact.Upload(ctx, bucketConf, dryRun))
+					defer func() {
+						assert.NoError(t, bucketConf.bucket.Remove(ctx, test.artifact.Path))
+					}()
 
-				oldBucket := test.bucketConf.bucket
-				require.NoError(t, test.artifact.Upload(ctx, test.bucketConf))
+					if test.newBucket || dryRun {
+						assert.NotEqual(t, test.bucketConf.bucket, bucketConf.bucket)
+					} else {
+						assert.Equal(t, test.bucketConf.bucket, bucketConf.bucket)
+					}
+					assert.Equal(t, test.artifact.Bucket, bucketConf.name)
+					assert.Equal(t, test.artifact.Prefix, bucketConf.prefix)
 
-				if test.newBucket {
-					assert.NotEqual(t, oldBucket, test.bucketConf.bucket)
-				} else {
-					assert.Equal(t, oldBucket, test.bucketConf.bucket)
-				}
-				assert.Equal(t, test.artifact.Bucket, test.bucketConf.name)
-				assert.Equal(t, test.artifact.Prefix, test.bucketConf.prefix)
+					opts := pail.S3Options{
+						Name:   test.artifact.Bucket,
+						Prefix: test.artifact.Prefix,
+						Region: bucketConf.Region,
+					}
+					if (test.bucketConf.APIKey != "" && test.bucketConf.APISecret != "") || test.bucketConf.APIToken != "" {
+						opts.Credentials = pail.CreateAWSCredentials(
+							test.bucketConf.APIKey,
+							test.bucketConf.APISecret,
+							test.bucketConf.APIToken,
+						)
+					}
+					bucket, err := pail.NewS3Bucket(opts)
+					require.NoError(t, err)
+					r, err := bucket.Get(ctx, test.artifact.Path)
+					if dryRun {
+						if err == nil {
+							fmt.Println(test.name)
+							fmt.Println(test.artifact.Path)
+						}
+						require.Error(t, err)
+					} else {
 
-				opts := pail.S3Options{
-					Name:   test.artifact.Bucket,
-					Prefix: test.artifact.Prefix,
-					Region: test.bucketConf.Region,
+						require.NoError(t, err)
+						remoteData, err := ioutil.ReadAll(r)
+						require.NoError(t, err)
+						f, err := os.Open(test.artifact.LocalFile)
+						require.NoError(t, err)
+						localData, err := ioutil.ReadAll(f)
+						require.NoError(t, err)
+						assert.Equal(t, localData, remoteData)
+					}
 				}
-				if (test.bucketConf.APIKey != "" && test.bucketConf.APISecret != "") || test.bucketConf.APIToken != "" {
-					opts.Credentials = pail.CreateAWSCredentials(
-						test.bucketConf.APIKey,
-						test.bucketConf.APISecret,
-						test.bucketConf.APIToken,
-					)
-				}
-				bucket, err := pail.NewS3Bucket(opts)
-				require.NoError(t, err)
-				r, err := bucket.Get(ctx, test.artifact.Path)
-				require.NoError(t, err)
-				remoteData, err := ioutil.ReadAll(r)
-				require.NoError(t, err)
-				f, err := os.Open(test.artifact.LocalFile)
-				require.NoError(t, err)
-				localData, err := ioutil.ReadAll(f)
-				require.NoError(t, err)
-				assert.Equal(t, localData, remoteData)
 			}
 		})
 	}
