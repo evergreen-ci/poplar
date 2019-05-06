@@ -7,6 +7,7 @@ import (
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -32,33 +33,42 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 		if err != nil {
 			return err
 		}
-
 		artifacts, err := extractArtifacts(ctx, report, test, dryRun)
 		if err != nil {
 			return errors.Wrap(err, "problem extracting artifacts")
 		}
+		resultData := &internal.ResultData{
+			Id: &internal.ResultID{
+				Project:   report.Project,
+				Version:   report.Version,
+				Variant:   report.Variant,
+				TaskName:  report.TaskName,
+				TaskId:    report.TaskID,
+				Mainline:  report.Mainline,
+				Execution: int32(report.Execution),
+				TestName:  test.Info.TestName,
+				Trial:     int32(test.Info.Trial),
+				Tags:      test.Info.Tags,
+				Arguments: test.Info.Arguments,
+				Parent:    test.Info.Parent,
+				CreatedAt: createdAt,
+			},
+			Artifacts: artifacts,
+			Rollups:   extractMetrics(ctx, test),
+		}
 
-		if !dryRun {
-			var resp *internal.MetricsResponse
-			resp, err = client.CreateMetricSeries(ctx, &internal.ResultData{
-				Id: &internal.ResultID{
-					Project:   report.Project,
-					Version:   report.Version,
-					Variant:   report.Variant,
-					TaskName:  report.TaskName,
-					TaskId:    report.TaskID,
-					Mainline:  report.Mainline,
-					Execution: int32(report.Execution),
-					TestName:  test.Info.TestName,
-					Trial:     int32(test.Info.Trial),
-					Tags:      test.Info.Tags,
-					Arguments: test.Info.Arguments,
-					Parent:    test.Info.Parent,
-					CreatedAt: createdAt,
+		if dryRun {
+			grip.Info(message.NewFieldsMessage(
+				level.Info,
+				"dry-run mode",
+				message.Fields{
+					"function":    "CreateMetricSeries",
+					"result_data": resultData,
 				},
-				Artifacts: artifacts,
-				Rollups:   extractMetrics(ctx, test),
-			})
+			))
+		} else {
+			var resp *internal.MetricsResponse
+			resp, err = client.CreateMetricSeries(ctx, resultData)
 			if err != nil {
 				return errors.Wrapf(err, "problem submitting test %d of %d", idx, len(tests))
 			} else if !resp.Success {
@@ -79,10 +89,24 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 		if err != nil {
 			return err
 		}
+		end := &internal.MetricsSeriesEnd{
+			Id:          test.ID,
+			IsComplete:  true,
+			CompletedAt: completedAt,
+		}
 
-		if !dryRun {
+		if dryRun {
+			grip.Info(message.NewFieldsMessage(
+				level.Info,
+				"dry-run mode",
+				message.Fields{
+					"function":          "CloseMetrics",
+					"metric_series_end": end,
+				},
+			))
+		} else {
 			var resp *internal.MetricsResponse
-			resp, err = client.CloseMetrics(ctx, &internal.MetricsSeriesEnd{Id: test.ID, IsComplete: true, CompletedAt: completedAt})
+			resp, err = client.CloseMetrics(ctx, end)
 			if err != nil {
 				return errors.Wrapf(err, "problem closing metrics series for '%s'", test.ID)
 			} else if !resp.Success {
