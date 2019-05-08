@@ -7,7 +7,6 @@ import (
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
 	"github.com/mongodb/grip"
-	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -58,14 +57,11 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 		}
 
 		if dryRun {
-			grip.Info(message.NewFieldsMessage(
-				level.Info,
-				"dry-run mode",
-				message.Fields{
-					"function":    "CreateMetricSeries",
-					"result_data": resultData,
-				},
-			))
+			grip.Info(message.Fields{
+				"message":     "dry-run mode",
+				"function":    "CreateMetricSeries",
+				"result_data": resultData,
+			})
 		} else {
 			var resp *internal.MetricsResponse
 			resp, err = client.CreateMetricSeries(ctx, resultData)
@@ -96,14 +92,11 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 		}
 
 		if dryRun {
-			grip.Info(message.NewFieldsMessage(
-				level.Info,
-				"dry-run mode",
-				message.Fields{
-					"function":          "CloseMetrics",
-					"metric_series_end": end,
-				},
-			))
+			grip.Info(message.Fields{
+				"message":           "dry-run mode",
+				"function":          "CloseMetrics",
+				"metric_series_end": end,
+			})
 		} else {
 			var resp *internal.MetricsResponse
 			resp, err = client.CloseMetrics(ctx, end)
