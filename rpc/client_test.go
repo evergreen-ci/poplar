@@ -64,6 +64,7 @@ func TestClient(t *testing.T) {
 	testReport := &poplar.Report{
 		Project:   "project",
 		Version:   "version",
+		Order:     2,
 		Variant:   "variant",
 		TaskName:  "taskName",
 		TaskID:    "taskID",
