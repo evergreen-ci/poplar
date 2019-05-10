@@ -63,6 +63,7 @@ post:
         - "gopath/src/github.com/evergreen-ci/poplar/build/output.*"
         - "gopath/src/github.com/evergreen-ci/poplar/build/test.out"
         - "gopath/src/github.com/evergreen-ci/poplar/build/race.out"
+        - "gopath/src/github.com/evergreen-ci/poplar/build/cover*"
   - command: subprocess.exec
     type: setup
     params:
