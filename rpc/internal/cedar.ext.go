@@ -11,10 +11,11 @@ import (
 
 func ExportArtifactInfo(in *poplar.TestArtifact) *ArtifactInfo {
 	out := &ArtifactInfo{
-		Bucket: in.Bucket,
-		Prefix: in.Prefix,
-		Path:   in.Path,
-		Tags:   in.Tags,
+		Location: StorageLocation_CEDAR_S3,
+		Bucket:   in.Bucket,
+		Prefix:   in.Prefix,
+		Path:     in.Path,
+		Tags:     in.Tags,
 	}
 
 	ts, err := ExportTimestamp(in.CreatedAt)
