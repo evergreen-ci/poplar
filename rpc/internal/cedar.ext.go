@@ -11,11 +11,10 @@ import (
 
 func ExportArtifactInfo(in *poplar.TestArtifact) *ArtifactInfo {
 	out := &ArtifactInfo{
-		Location: StorageLocation_CEDAR_S3,
-		Bucket:   in.Bucket,
-		Prefix:   in.Prefix,
-		Path:     in.Path,
-		Tags:     in.Tags,
+		Bucket: in.Bucket,
+		Prefix: in.Prefix,
+		Path:   in.Path,
+		Tags:   in.Tags,
 	}
 
 	ts, err := ExportTimestamp(in.CreatedAt)
@@ -54,6 +53,21 @@ func ExportArtifactInfo(in *poplar.TestArtifact) *ArtifactInfo {
 		out.Schema = SchemaType_INTERVAL_SUMMARIZATION
 	case in.EventsCollapsed:
 		out.Schema = SchemaType_COLLAPSED_EVENTS
+	}
+
+	switch {
+	case in.LocationCedarS3:
+		out.Location = StorageLocation_CEDAR_S3
+	case in.LocationProjectS3:
+		out.Location = StorageLocation_PROJECT_S3
+	case in.LocationGridFS:
+		out.Location = StorageLocation_GRIDFS
+	case in.LocationEphemeral:
+		out.Location = StorageLocation_EPHEMERAL
+	case in.LocationLocal:
+		out.Location = StorageLocation_LOCAL
+	default:
+		out.Location = StorageLocation_UNKNOWN
 	}
 
 	return out
