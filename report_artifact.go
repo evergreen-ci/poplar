@@ -89,34 +89,30 @@ func (a *TestArtifact) Upload(ctx context.Context, conf *BucketConfiguration, dr
 		return errors.New("cannot upload file that does not exist")
 	}
 
-	if conf.bucket == nil || conf.name != a.Bucket || conf.prefix != a.Prefix || dryRun {
-		if a.Bucket == "" {
-			return errors.New("cannot upload file, no bucket specified")
-		}
-		if conf.Region == "" {
-			return errors.New("bucket configuration must specify a region")
-		}
-
-		opts := pail.S3Options{
-			Name:       a.Bucket,
-			Prefix:     a.Prefix,
-			Region:     conf.Region,
-			Permission: a.Permissions,
-			DryRun:     dryRun,
-		}
-		if (conf.APIKey != "" && conf.APISecret != "") || conf.APIToken != "" {
-			opts.Credentials = pail.CreateAWSCredentials(conf.APIKey, conf.APISecret, conf.APIToken)
-		}
-
-		conf.bucket, err = pail.NewS3Bucket(opts)
-		if err != nil {
-			return errors.Wrap(err, "could not construct bucket")
-		}
-		conf.name = a.Bucket
-		conf.prefix = a.Prefix
+	if a.Bucket == "" {
+		return errors.New("cannot upload file, no bucket specified")
+	}
+	if conf.Region == "" {
+		return errors.New("bucket configuration must specify a region")
 	}
 
-	if err := conf.bucket.Upload(ctx, a.Path, a.LocalFile); err != nil {
+	opts := pail.S3Options{
+		Name:       a.Bucket,
+		Prefix:     a.Prefix,
+		Region:     conf.Region,
+		Permission: a.Permissions,
+		DryRun:     dryRun,
+	}
+	if (conf.APIKey != "" && conf.APISecret != "") || conf.APIToken != "" {
+		opts.Credentials = pail.CreateAWSCredentials(conf.APIKey, conf.APISecret, conf.APIToken)
+	}
+
+	bucket, err := pail.NewS3Bucket(opts)
+	if err != nil {
+		return errors.Wrap(err, "could not construct bucket")
+	}
+
+	if err := bucket.Upload(ctx, a.Path, a.LocalFile); err != nil {
 		return errors.Wrap(err, "problem uploading file")
 	}
 
