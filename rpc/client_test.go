@@ -219,6 +219,8 @@ func TestClient(t *testing.T) {
 			require.Len(t, result.Artifacts, len(expectedTests[i].Artifacts))
 			for j, artifact := range expectedTests[i].Artifacts {
 				require.NoError(t, artifact.Validate())
+				expectedArtifact := internal.ExportArtifactInfo(&artifact)
+				expectedArtifact.Location = internal.StorageLocation_CEDAR_S3
 				assert.Equal(t, internal.ExportArtifactInfo(&artifact), result.Artifacts[j])
 				r, err := s3Bucket.Get(ctx, artifact.Path)
 				require.NoError(t, err)
