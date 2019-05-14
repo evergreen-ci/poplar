@@ -85,25 +85,12 @@ type TestArtifact struct {
 	ConvertBSON2FTDC      bool      `bson:"convert_bson_to_ftdc,omitempty" json:"convert_bson_to_ftdc,omitempty" yaml:"convert_bson_to_ftdc,omitempty"`
 	ConvertJSON2FTDC      bool      `bson:"convert_json_to_ftdc" json:"convert_json_to_ftdc" yaml:"convert_json_to_ftdc"`
 	ConvertCSV2FTDC       bool      `bson:"convert_csv_to_ftdc" json:"convert_csv_to_ftdc" yaml:"convert_csv_to_ftdc"`
-
-	LocationCedarS3   bool
-	LocationProjectS3 bool
-	LocationGridFS    bool
-	LocationEphemeral bool
-	LocationLocal     bool
 }
 
 // Validate examines an entire artifact structure and reports if there
 // are any logical inconsistencies with the data.
 func (a *TestArtifact) Validate() error {
 	catcher := grip.NewBasicCatcher()
-
-	// currently supporting s3 only
-	a.LocationCedarS3 = true
-	a.LocationProjectS3 = false
-	a.LocationGridFS = false
-	a.LocationEphemeral = false
-	a.LocationLocal = false
 
 	if a.ConvertGzip {
 		a.DataGzipped = true
