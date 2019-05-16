@@ -4,7 +4,7 @@ imports:
   - name: github.com/mongodb/ftdc
     version: b73dcba72a67fa6e593e3979885b472f5d8e3370
   - name: github.com/mongodb/grip
-    version: d07e4b4315431972625195cb03f8dc7ecdc6b8be
+    version: 8b8accd7a3ec9b31a2d3eea610d5bf906bddfd11
   - name: github.com/mongodb/mongo-go-driver
     version: e8f52c4942686e6f1d9f366fa1e84b016aae0762
   - name: github.com/evergreen-ci/pail
