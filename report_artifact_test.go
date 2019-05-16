@@ -122,7 +122,7 @@ func TestUpload(t *testing.T) {
 	for _, test := range []struct {
 		name        string
 		artifact    *TestArtifact
-		bucketConf  *BucketConfiguration
+		bucketConf  BucketConfiguration
 		dryRunNoErr bool
 		hasErr      bool
 	}{
@@ -132,7 +132,7 @@ func TestUpload(t *testing.T) {
 				Bucket: "bucket",
 				Path:   "bson_example.bson",
 			},
-			bucketConf: &BucketConfiguration{
+			bucketConf: BucketConfiguration{
 				Region: s3Region,
 			},
 			hasErr: true,
@@ -143,7 +143,7 @@ func TestUpload(t *testing.T) {
 				Bucket:    "bucket",
 				LocalFile: "testdata/bson_example.bson",
 			},
-			bucketConf: &BucketConfiguration{
+			bucketConf: BucketConfiguration{
 				Region: s3Region,
 			},
 			hasErr: true,
@@ -164,7 +164,7 @@ func TestUpload(t *testing.T) {
 				Path:      "bson_example.bson",
 				LocalFile: "DNE",
 			},
-			bucketConf: &BucketConfiguration{
+			bucketConf: BucketConfiguration{
 				Region: s3Region,
 			},
 			hasErr: true,
@@ -175,7 +175,7 @@ func TestUpload(t *testing.T) {
 				Path:      "bson_example.bson",
 				LocalFile: "testdata/bson_example.bson",
 			},
-			bucketConf: &BucketConfiguration{
+			bucketConf: BucketConfiguration{
 				Region: s3Region,
 			},
 			hasErr: true,
@@ -188,7 +188,7 @@ func TestUpload(t *testing.T) {
 				Path:      "bson_example.bson",
 				LocalFile: "testdata/bson_example.bson",
 			},
-			bucketConf: &BucketConfiguration{},
+			bucketConf: BucketConfiguration{},
 			hasErr:     true,
 		},
 		{
@@ -199,7 +199,7 @@ func TestUpload(t *testing.T) {
 				Path:      "bson_example.bson",
 				LocalFile: "testdata/bson_example.bson",
 			},
-			bucketConf: &BucketConfiguration{
+			bucketConf: BucketConfiguration{
 				APIKey:    "asdf",
 				APISecret: "asdf",
 				Region:    s3Region,
@@ -215,7 +215,7 @@ func TestUpload(t *testing.T) {
 				Path:      "bson_example.bson",
 				LocalFile: "testdata/bson_example.bson",
 			},
-			bucketConf: &BucketConfiguration{
+			bucketConf: BucketConfiguration{
 				APIToken: "asdf",
 				Region:   s3Region,
 			},
@@ -229,7 +229,7 @@ func TestUpload(t *testing.T) {
 				Path:      "bson_example2.bson",
 				LocalFile: "testdata/bson_example.bson",
 			},
-			bucketConf: &BucketConfiguration{
+			bucketConf: BucketConfiguration{
 				Region: s3Region,
 			},
 		},

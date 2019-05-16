@@ -126,16 +126,16 @@ func TestUploadJob(t *testing.T) {
 				assert.NoError(t, j.Error())
 			}
 
-			r, err := s3Bucket.Get(ctx, test.artifact.Path)
+			r, getErr := s3Bucket.Get(ctx, test.artifact.Path)
 			if !test.dryRun && !test.hasErr && !test.noUpload {
-				require.NoError(t, err)
+				require.NoError(t, getErr)
 				remoteData, err := ioutil.ReadAll(r)
 				require.NoError(t, err)
 				localData, err := ioutil.ReadFile(test.artifact.LocalFile)
 				require.NoError(t, err)
 				assert.Equal(t, localData, remoteData)
 			} else {
-				assert.Error(t, err)
+				assert.Error(t, getErr)
 			}
 		})
 	}

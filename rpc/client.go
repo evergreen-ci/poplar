@@ -24,7 +24,9 @@ func UploadReport(ctx context.Context, report *poplar.Report, cc *grpc.ClientCon
 
 func convertAndUploadArtifacts(ctx context.Context, report *poplar.Report, dryRun bool) error {
 	jobQueue := queue.NewLocalUnordered(runtime.NumCPU())
-	jobQueue.Start(ctx)
+	if err := jobQueue.Start(ctx); err != nil {
+		return errors.Wrap(err, "problem starting artifact upload queue")
+	}
 
 	queue := make([]poplar.Test, 0)
 	for _, test := range report.Tests {
