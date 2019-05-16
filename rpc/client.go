@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"runtime"
+	"time"
 
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
@@ -14,23 +15,30 @@ import (
 	"google.golang.org/grpc"
 )
 
-func UploadReport(ctx context.Context, report *poplar.Report, cc *grpc.ClientConn, dryRun bool) error {
-	if err := convertAndUploadArtifacts(ctx, report, dryRun); err != nil {
+type UploadReportOptions struct {
+	Report          *poplar.Report
+	ClientConn      *grpc.ClientConn
+	SerializeUpload bool
+	DryRun          bool
+}
+
+func UploadReport(ctx context.Context, opts UploadReportOptions) error {
+	if err := convertAndUploadArtifacts(ctx, opts.Report, opts.SerializeUpload, opts.DryRun); err != nil {
 		return errors.Wrap(err, "problem uploading tests for report")
 	}
-	return errors.Wrap(uploadTests(ctx, internal.NewCedarPerformanceMetricsClient(cc), report, report.Tests, dryRun),
+	return errors.Wrap(uploadTests(ctx, internal.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun),
 		"problem uploading tests for report")
 }
 
-func convertAndUploadArtifacts(ctx context.Context, report *poplar.Report, dryRun bool) error {
+func convertAndUploadArtifacts(ctx context.Context, report *poplar.Report, serialize, dryRun bool) error {
 	jobQueue := queue.NewLocalUnordered(runtime.NumCPU())
 	if err := jobQueue.Start(ctx); err != nil {
 		return errors.Wrap(err, "problem starting artifact upload queue")
 	}
 
-	queue := make([]poplar.Test, 0)
-	for _, test := range report.Tests {
-		queue = append(queue, test)
+	queue := make([]poplar.Test, len(report.Tests))
+	for i, test := range report.Tests {
+		queue[i] = test
 	}
 
 	for len(queue) != 0 {
@@ -42,13 +50,27 @@ func convertAndUploadArtifacts(ctx context.Context, report *poplar.Report, dryRu
 		}
 
 		for _, a := range test.Artifacts {
-			if err := jobQueue.Put(NewUploadJob(a, report.BucketConf, dryRun)); err != nil {
+			var err error
+			job := NewUploadJob(a, report.BucketConf, dryRun)
+			if serialize {
+				job.Run(ctx)
+				if job.Error() != nil {
+					return errors.Wrap(err, "problem converting and uploading artifacts")
+				}
+			} else if err := jobQueue.Put(job); err != nil {
 				return errors.Wrap(err, "problem adding artifact job to upload queue")
 			}
 		}
 	}
 
-	amboy.WaitCtx(ctx, jobQueue)
+	// TODO: maybe delete this
+	if serialize {
+		return nil
+	}
+
+	if !amboy.WaitCtxInterval(ctx, jobQueue, 10*time.Millisecond) {
+		return errors.New("context canceled while waiting for artifact jobs to complete")
+	}
 
 	catcher := grip.NewBasicCatcher()
 	for job := range jobQueue.Results(ctx) {
