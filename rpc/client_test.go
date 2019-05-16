@@ -60,8 +60,7 @@ func mockUploadReport(ctx context.Context, report *poplar.Report, client interna
 func TestClient(t *testing.T) {
 	ctx := context.TODO()
 	testdataDir := filepath.Join("..", "testdata")
-	//s3Name := "build-test-curator"
-	s3Name := "pail-bucket-test"
+	s3Name := "build-test-curator"
 	s3Prefix := "poplar-client-test"
 	s3Opts := pail.S3Options{
 		Name:   s3Name,

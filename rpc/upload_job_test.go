@@ -15,9 +15,7 @@ import (
 
 func TestUploadJob(t *testing.T) {
 	ctx := context.TODO()
-
-	//s3Name := "build-test-curator"
-	s3Name := "pail-bucket-test"
+	s3Name := "build-test-curator"
 	s3Prefix := "poplar-upload-job-test"
 	s3Region := "us-east-1"
 	s3Opts := pail.S3Options{
