@@ -140,7 +140,7 @@ vendor:
 
 .PHONY:vendor
 vendor-clean:
-	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/montanaflynn/
+	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/montanaflynn/stats/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/stretchr/testify/
 	rm -rf vendor/github.com/mongodb/grip/vendor/golang.org/x/sys/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/pkg/errors/
