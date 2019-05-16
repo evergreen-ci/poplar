@@ -2,10 +2,12 @@ package rpc
 
 import (
 	"context"
-	"path/filepath"
+	"runtime"
 
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
+	"github.com/mongodb/amboy"
+	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -13,8 +15,45 @@ import (
 )
 
 func UploadReport(ctx context.Context, report *poplar.Report, cc *grpc.ClientConn, dryRun bool) error {
+	if err := convertAndUploadArtifacts(ctx, report, dryRun); err != nil {
+		return errors.Wrap(err, "problem uploading tests for report")
+	}
 	return errors.Wrap(uploadTests(ctx, internal.NewCedarPerformanceMetricsClient(cc), report, report.Tests, dryRun),
 		"problem uploading tests for report")
+}
+
+func convertAndUploadArtifacts(ctx context.Context, report *poplar.Report, dryRun bool) error {
+	jobQueue := queue.NewLocalUnordered(runtime.NumCPU())
+	jobQueue.Start(ctx)
+
+	queue := make([]poplar.Test, 0)
+	for _, test := range report.Tests {
+		queue = append(queue, test)
+	}
+
+	for len(queue) != 0 {
+		test := queue[0]
+		queue = queue[1:]
+
+		for _, subtest := range test.SubTests {
+			queue = append(queue, subtest)
+		}
+
+		for _, a := range test.Artifacts {
+			if err := jobQueue.Put(NewUploadJob(a, report.BucketConf, dryRun)); err != nil {
+				return errors.Wrap(err, "problem adding artifact job to upload queue")
+			}
+		}
+	}
+
+	amboy.WaitCtx(ctx, jobQueue)
+
+	catcher := grip.NewBasicCatcher()
+	for job := range jobQueue.Results(ctx) {
+		catcher.Add(job.Error())
+	}
+
+	return errors.Wrap(catcher.Resolve(), "problem converting and uploading artifacts")
 }
 
 func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsClient, report *poplar.Report, tests []poplar.Test, dryRun bool) error {
@@ -32,9 +71,9 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 		if err != nil {
 			return err
 		}
-		artifacts, err := extractArtifacts(ctx, report, test, dryRun)
+		artifacts, err := extractArtifacts(ctx, report, test)
 		if err != nil {
-			return errors.Wrap(err, "problem extracting artifacts")
+			return err
 		}
 		resultData := &internal.ResultData{
 			Id: &internal.ResultID{
@@ -113,33 +152,11 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 	return nil
 }
 
-func extractArtifacts(ctx context.Context, report *poplar.Report, test poplar.Test, dryRun bool) ([]*internal.ArtifactInfo, error) {
+func extractArtifacts(ctx context.Context, report *poplar.Report, test poplar.Test) ([]*internal.ArtifactInfo, error) {
 	artifacts := make([]*internal.ArtifactInfo, 0, len(test.Artifacts))
 	for _, a := range test.Artifacts {
 		if err := a.Validate(); err != nil {
 			return nil, errors.Wrap(err, "problem validating artifact")
-		}
-
-		if a.LocalFile != "" {
-			if a.Path == "" {
-				a.Path = filepath.Join(test.ID, filepath.Base(a.LocalFile))
-			}
-
-			grip.Info(message.Fields{
-				"op":     "uploading file",
-				"path":   a.Path,
-				"bucket": a.Bucket,
-				"prefix": a.Prefix,
-				"file":   a.LocalFile,
-			})
-
-			if err := a.Convert(ctx); err != nil {
-				return nil, errors.Wrap(err, "problem converting artifact")
-			}
-
-			if err := a.Upload(ctx, &report.BucketConf, dryRun); err != nil {
-				return nil, errors.Wrap(err, "problem uploading artifact")
-			}
 		}
 		artifacts = append(artifacts, internal.ExportArtifactInfo(&a))
 		artifacts[len(artifacts)-1].Location = internal.StorageLocation_CEDAR_S3

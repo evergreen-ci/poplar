@@ -13,6 +13,7 @@ import (
 	"github.com/evergreen-ci/poplar/rpc/internal"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -48,10 +49,19 @@ func (mc *mockClient) CloseMetrics(_ context.Context, in *internal.MetricsSeries
 	return &internal.MetricsResponse{Success: true}, nil
 }
 
+func mockUploadReport(ctx context.Context, report *poplar.Report, client internal.CedarPerformanceMetricsClient, dryRun bool) error {
+	if err := convertAndUploadArtifacts(ctx, report, dryRun); err != nil {
+		return errors.Wrap(err, "problem uploading tests for report")
+	}
+	return errors.Wrap(uploadTests(ctx, client, report, report.Tests, dryRun),
+		"problem uploading tests for report")
+}
+
 func TestClient(t *testing.T) {
 	ctx := context.TODO()
 	testdataDir := filepath.Join("..", "testdata")
-	s3Name := "build-test-curator"
+	//s3Name := "build-test-curator"
+	s3Name := "pail-bucket-test"
 	s3Prefix := "poplar-client-test"
 	s3Opts := pail.S3Options{
 		Name:   s3Name,
@@ -186,7 +196,7 @@ func TestClient(t *testing.T) {
 
 	t.Run("WetRun", func(t *testing.T) {
 		mc := NewMockClient()
-		require.NoError(t, uploadTests(ctx, mc, testReport, testReport.Tests, false))
+		require.NoError(t, mockUploadReport(ctx, testReport, mc, false))
 		require.Len(t, mc.resultData, len(expectedTests))
 		require.Equal(t, len(mc.resultData), len(mc.endData))
 		for i, result := range mc.resultData {
@@ -249,7 +259,7 @@ func TestClient(t *testing.T) {
 
 	t.Run("DryRun", func(t *testing.T) {
 		mc := NewMockClient()
-		require.NoError(t, uploadTests(ctx, mc, testReport, testReport.Tests, true))
+		require.NoError(t, mockUploadReport(ctx, testReport, mc, true))
 		assert.Empty(t, mc.resultData)
 		assert.Empty(t, mc.endData)
 		for _, expectedTest := range expectedTests {

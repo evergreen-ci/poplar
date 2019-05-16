@@ -72,15 +72,12 @@ func (a *TestArtifact) Convert(ctx context.Context) error {
 }
 
 // Upload provides a way to upload an artifact using a bucket configuration.
-func (a *TestArtifact) Upload(ctx context.Context, conf *BucketConfiguration, dryRun bool) error {
+func (a *TestArtifact) Upload(ctx context.Context, conf BucketConfiguration, dryRun bool) error {
 	if a.LocalFile == "" {
 		return errors.New("cannot upload unspecified file")
 	}
 	if a.Path == "" {
 		return errors.New("must specify remote path")
-	}
-	if conf == nil {
-		return errors.New("bucket configruation cannot be nil")
 	}
 
 	var err error
@@ -100,6 +97,7 @@ func (a *TestArtifact) Upload(ctx context.Context, conf *BucketConfiguration, dr
 		Name:       a.Bucket,
 		Prefix:     a.Prefix,
 		Region:     conf.Region,
+		MaxRetries: 10,
 		Permission: a.Permissions,
 		DryRun:     dryRun,
 	}
