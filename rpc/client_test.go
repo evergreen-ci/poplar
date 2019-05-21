@@ -50,7 +50,12 @@ func (mc *mockClient) CloseMetrics(_ context.Context, in *internal.MetricsSeries
 }
 
 func mockUploadReport(ctx context.Context, report *poplar.Report, client internal.CedarPerformanceMetricsClient, serialize, dryRun bool) error {
-	if err := convertAndUploadArtifacts(ctx, report, serialize, dryRun); err != nil {
+	opts := UploadReportOptions{
+		Report:          report,
+		SerializeUpload: serialize,
+		DryRun:          dryRun,
+	}
+	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		return errors.Wrap(err, "problem uploading tests for report")
 	}
 	return errors.Wrap(uploadTests(ctx, client, report, report.Tests, dryRun),

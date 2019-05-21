@@ -23,21 +23,24 @@ type UploadReportOptions struct {
 }
 
 func UploadReport(ctx context.Context, opts UploadReportOptions) error {
-	if err := convertAndUploadArtifacts(ctx, opts.Report, opts.SerializeUpload, opts.DryRun); err != nil {
+	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		return errors.Wrap(err, "problem uploading tests for report")
 	}
 	return errors.Wrap(uploadTests(ctx, internal.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun),
 		"problem uploading tests for report")
 }
 
-func convertAndUploadArtifacts(ctx context.Context, report *poplar.Report, serialize, dryRun bool) error {
+func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) error {
 	jobQueue := queue.NewLocalUnordered(runtime.NumCPU())
-	if err := jobQueue.Start(ctx); err != nil {
-		return errors.Wrap(err, "problem starting artifact upload queue")
+	if !opts.SerializeUpload {
+		if err := jobQueue.Start(ctx); err != nil {
+			return errors.Wrap(err, "problem starting artifact upload queue")
+		}
+		defer jobQueue.Runner().Close(ctx)
 	}
 
-	queue := make([]poplar.Test, len(report.Tests))
-	for i, test := range report.Tests {
+	queue := make([]poplar.Test, len(opts.Report.Tests))
+	for i, test := range opts.Report.Tests {
 		queue[i] = test
 	}
 
@@ -51,8 +54,8 @@ func convertAndUploadArtifacts(ctx context.Context, report *poplar.Report, seria
 
 		for _, a := range test.Artifacts {
 			var err error
-			job := NewUploadJob(a, report.BucketConf, dryRun)
-			if serialize {
+			job := NewUploadJob(a, opts.Report.BucketConf, opts.DryRun)
+			if opts.SerializeUpload {
 				job.Run(ctx)
 				if job.Error() != nil {
 					return errors.Wrap(err, "problem converting and uploading artifacts")
@@ -63,8 +66,7 @@ func convertAndUploadArtifacts(ctx context.Context, report *poplar.Report, seria
 		}
 	}
 
-	// TODO: maybe delete this
-	if serialize {
+	if opts.SerializeUpload {
 		return nil
 	}
 
