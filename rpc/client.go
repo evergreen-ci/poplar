@@ -60,7 +60,7 @@ func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) 
 				if job.Error() != nil {
 					return errors.Wrap(err, "problem converting and uploading artifacts")
 				}
-			} else if err := jobQueue.Put(job); err != nil {
+			} else if err := jobQueue.Put(ctx, job); err != nil {
 				return errors.Wrap(err, "problem adding artifact job to upload queue")
 			}
 		}
@@ -70,7 +70,7 @@ func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) 
 		return nil
 	}
 
-	if !amboy.WaitCtxInterval(ctx, jobQueue, 10*time.Millisecond) {
+	if !amboy.WaitInterval(ctx, jobQueue, 10*time.Millisecond) {
 		return errors.New("context canceled while waiting for artifact jobs to complete")
 	}
 

@@ -10,7 +10,7 @@ imports:
   - name: github.com/evergreen-ci/pail
     version: 7b2f8e0b2d972ca621cad3777d68276a54da13d0
   - name: github.com/mongodb/amboy
-    version: e937514cf5f3d4e49bb58bb8fba55de787d9d122
+    version: 2b8431d235ec6c322dba74eff51988ebd8ac1f7f
 
   - name: github.com/pkg/errors
     version: 2b3a18b5f0fb6b4f9190549597d3f962c02bc5eb
