@@ -44,7 +44,10 @@ lintArgs += --exclude="deadcode"
 
 # start dependency installation tools
 #   implementation details for being able to lazily install dependencies
-gopath := $(shell $(gobin) env GOPATH)
+gopath := $(GOPATH)
+ifeq ($(OS),Windows_NT)
+gopath := $(shell cygpath -m $(gopath))
+endif
 $(gopath)/src/%:
 	@-[ ! -d $(gopath) ] && mkdir -p $(gopath) || true
 	$(gobin) get $(subst $(gopath)/src/,,$@)
