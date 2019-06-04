@@ -176,7 +176,8 @@ func TestRegistry(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, r)
 		defer func() {
-			impl, ok := reg.cache["foo"]
+			var impl *recorderInstance
+			impl, ok = reg.cache["foo"]
 			if ok {
 				assert.NoError(t, impl.file.Close())
 			}
