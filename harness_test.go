@@ -309,7 +309,7 @@ func TestCaseType(t *testing.T) {
 			assert.True(t, res.Iterations > c.MinIterations)
 			assert.False(t, res.Iterations < c.MaxIterations)
 
-			assert.True(t, res.CompletedAt.Sub(res.StartAt) < 2*time.Second)
+			assert.True(t, res.CompletedAt.Sub(res.StartAt) < time.Second)
 			assert.True(t, res.CompletedAt.Sub(res.StartAt) > time.Millisecond)
 
 		})
