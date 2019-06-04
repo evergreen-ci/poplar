@@ -93,6 +93,7 @@ race:
 	GOPATH=$(gopath) $(gobin) test $(testArgs) -race $(packages) | tee $(buildDir)/race.out
 	@grep -s -q -e "^PASS" $(buildDir)/race.out && ! grep -s -q "^WARNING: DATA RACE" $(buildDir)/race.out
 test:
+	echo $(USERPROFILE)
 	@mkdir -p $(buildDir)
 	GOPATH=$(gopath) $(gobin) test $(testArgs) $(if $(DISABLE_COVERAGE),, -cover) $(packages) | tee $(buildDir)/test.out
 	@grep -s -q -e "^PASS" $(buildDir)/test.out
