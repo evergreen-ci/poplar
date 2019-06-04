@@ -30,7 +30,9 @@ functions:
     params:
       silent: true
       script: |
-        git config --system core.longpaths true
+        if [ "Windows_NT" == "$OS" ]; then
+          git config --system core.longpaths true
+        fi
   setup-credentials:
     command: shell.exec
     type: setup
