@@ -258,7 +258,6 @@ func (opts *CreateOptions) build() (*recorderInstance, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "problem opening file '%s'", opts.Path)
 	}
-	defer file.Close()
 
 	out := &recorderInstance{
 		isDynamic: opts.Dynamic,
