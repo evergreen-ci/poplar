@@ -67,7 +67,7 @@ functions:
         DISABLE_COVERAGE: ${disable_coverage}
         GOROOT: ${goroot}
         GOPATH: ${workdir}/gopath
-        USERPROFILE: C:\\Users\\Administrator
+        USERPROFILE: C:\\Users\\$USER
 
 #######################################
 #                Tasks                #
