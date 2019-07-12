@@ -279,6 +279,7 @@ func (c *BenchmarkCase) Validate() error {
 // timeout, the tests can choose to propagate that error.
 func (c *BenchmarkCase) Run(ctx context.Context, recorder events.Recorder) BenchmarkResult {
 	res := &BenchmarkResult{
+		Name:       c.Name(),
 		Iterations: 0,
 		Count:      c.Count,
 		StartAt:    time.Now(),
