@@ -94,10 +94,11 @@ func TestConvert(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.TODO()
+			conf := BucketConfiguration{}
 			if test.hasErr {
-				require.Error(t, test.artifact.Convert(ctx))
+				require.Error(t, test.artifact.Convert(ctx, conf))
 			} else {
-				require.NoError(t, test.artifact.Convert(ctx))
+				require.NoError(t, test.artifact.Convert(ctx, conf))
 			}
 			assert.Equal(t, test.expectedLocalFile, test.artifact.LocalFile)
 			if test.conversionCheck != nil {

@@ -7,6 +7,9 @@ import (
 )
 
 func TestValidate(t *testing.T) {
+	testBucketName := "test-bucket-name"
+	conf := BucketConfiguration{Name: testBucketName}
+
 	for _, test := range []struct {
 		name     string
 		artifact TestArtifact
@@ -68,9 +71,9 @@ func TestValidate(t *testing.T) {
 					a.ConvertGzip = combination[3]
 
 					if isMoreThanOneTrue([]bool{a.ConvertCSV2FTDC, a.ConvertBSON2FTDC, a.ConvertJSON2FTDC, a.ConvertGzip}) {
-						assert.Error(t, a.Validate())
+						assert.Error(t, a.Validate(conf))
 					} else {
-						assert.NoError(t, a.Validate())
+						assert.NoError(t, a.Validate(conf))
 					}
 				}
 			},
@@ -87,9 +90,9 @@ func TestValidate(t *testing.T) {
 					a.PayloadFTDC = combination[4]
 
 					if isMoreThanOneTrue([]bool{a.PayloadTEXT, a.PayloadCSV, a.PayloadBSON, a.PayloadJSON, a.PayloadFTDC}) {
-						assert.Error(t, a.Validate())
+						assert.Error(t, a.Validate(conf))
 					} else {
-						assert.NoError(t, a.Validate())
+						assert.NoError(t, a.Validate(conf))
 					}
 				}
 			},
@@ -104,9 +107,9 @@ func TestValidate(t *testing.T) {
 					a.DataUncompressed = combination[2]
 
 					if isMoreThanOneTrue([]bool{a.DataGzipped, a.DataTarball, a.DataUncompressed}) {
-						assert.Error(t, a.Validate())
+						assert.Error(t, a.Validate(conf))
 					} else {
-						assert.NoError(t, a.Validate())
+						assert.NoError(t, a.Validate(conf))
 					}
 				}
 			},
@@ -122,19 +125,26 @@ func TestValidate(t *testing.T) {
 					a.EventsRaw = combination[3]
 
 					if isMoreThanOneTrue([]bool{a.EventsCollapsed, a.EventsHistogram, a.EventsIntervalSummary, a.EventsRaw}) {
-						assert.Error(t, a.Validate())
+						assert.Error(t, a.Validate(conf))
 					} else {
-						assert.NoError(t, a.Validate())
+						assert.NoError(t, a.Validate(conf))
 					}
 				}
+			},
+		},
+		{
+			name:     "MissingBucket",
+			artifact: TestArtifact{},
+			test: func(a TestArtifact) {
+				assert.Equal(t, a.Bucket, testBucketName)
 			},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if test.hasErr {
-				assert.Error(t, test.artifact.Validate())
+				assert.Error(t, test.artifact.Validate(conf))
 			} else {
-				assert.NoError(t, test.artifact.Validate())
+				assert.NoError(t, test.artifact.Validate(conf))
 			}
 			if test.test != nil {
 				test.test(test.artifact)

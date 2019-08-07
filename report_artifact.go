@@ -19,8 +19,8 @@ const defaultChunkSize = 2048
 // Convert translates a the artifact into a different format,
 // typically by converting JSON, BSON, or CSV to FTDC, and also
 // optionally gzipping the results.
-func (a *TestArtifact) Convert(ctx context.Context) error {
-	if err := a.Validate(); err != nil {
+func (a *TestArtifact) Convert(ctx context.Context, conf BucketConfiguration) error {
+	if err := a.Validate(conf); err != nil {
 		return errors.New("invalid test artifact")
 	}
 

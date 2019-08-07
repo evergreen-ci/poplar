@@ -181,7 +181,7 @@ func uploadTests(ctx context.Context, client internal.CedarPerformanceMetricsCli
 func extractArtifacts(ctx context.Context, report *poplar.Report, test poplar.Test) ([]*internal.ArtifactInfo, error) {
 	artifacts := make([]*internal.ArtifactInfo, 0, len(test.Artifacts))
 	for _, a := range test.Artifacts {
-		if err := a.Validate(); err != nil {
+		if err := a.Validate(report.BucketConf); err != nil {
 			return nil, errors.Wrap(err, "problem validating artifact")
 		}
 		artifacts = append(artifacts, internal.ExportArtifactInfo(&a))
