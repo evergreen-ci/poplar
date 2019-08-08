@@ -77,7 +77,7 @@ func (a *TestArtifact) Upload(ctx context.Context, conf BucketConfiguration, dry
 		return errors.New("cannot upload unspecified file")
 	}
 	if a.Path == "" {
-		return errors.New("must specify remote path")
+		a.Path = a.LocalFile
 	}
 
 	var err error
@@ -87,7 +87,10 @@ func (a *TestArtifact) Upload(ctx context.Context, conf BucketConfiguration, dry
 	}
 
 	if a.Bucket == "" {
-		return errors.New("cannot upload file, no bucket specified")
+		if conf.Name == "" {
+			return errors.New("cannot upload file, no bucket specified")
+		}
+		a.Bucket = conf.Name
 	}
 	if conf.Region == "" {
 		return errors.New("bucket configuration must specify a region")

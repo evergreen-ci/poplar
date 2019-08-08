@@ -90,14 +90,12 @@ func TestUploadJob(t *testing.T) {
 			artifact: poplar.TestArtifact{
 				Bucket:    s3Name,
 				Prefix:    s3Prefix,
-				LocalFile: filepath.Join("..", "testdata", "bson_example.bson"),
+				LocalFile: filepath.Join("..", "testdata", "bson_example1.bson"),
 			},
 			conf: poplar.BucketConfiguration{
 				Region: s3Region,
 			},
-			hasErr: true,
 		},
-
 		{
 			name: "UploadAndConvertDryRun",
 			artifact: poplar.TestArtifact{
