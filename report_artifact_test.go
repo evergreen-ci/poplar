@@ -2,6 +2,7 @@ package poplar
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -117,7 +118,8 @@ func TestConvert(t *testing.T) {
 func TestUpload(t *testing.T) {
 	ctx := context.TODO()
 
-	s3Name := "build-test-curator"
+	// s3Name := "build-test-curator"
+	s3Name := "stitch-poplar-test"
 	s3Prefix := "poplar-test"
 	s3Region := "us-east-1"
 	for _, test := range []struct {
@@ -278,10 +280,10 @@ func TestUpload(t *testing.T) {
 					}()
 
 					r, err := bucket.Get(ctx, test.artifact.Path)
+					fmt.Println(test.artifact.Path)
 					if dryRun {
 						require.Error(t, err)
 					} else {
-
 						require.NoError(t, err)
 						remoteData, err := ioutil.ReadAll(r)
 						require.NoError(t, err)
