@@ -118,8 +118,8 @@ func TestConvert(t *testing.T) {
 func TestUpload(t *testing.T) {
 	ctx := context.TODO()
 
-	// s3Name := "build-test-curator"
-	s3Name := "stitch-poplar-test"
+	s3Name := "build-test-curator"
+	// s3Name := "stitch-poplar-test"
 	s3Prefix := "poplar-test"
 	s3Region := "us-east-1"
 	for _, test := range []struct {

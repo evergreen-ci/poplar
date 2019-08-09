@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/evergreen-ci/pail"
@@ -77,7 +78,7 @@ func (a *TestArtifact) Upload(ctx context.Context, conf BucketConfiguration, dry
 		return errors.New("cannot upload unspecified file")
 	}
 	if a.Path == "" {
-		a.Path = a.LocalFile
+		a.Path = filepath.Base(a.LocalFile)
 	}
 
 	var err error
