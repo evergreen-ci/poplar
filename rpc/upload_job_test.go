@@ -52,9 +52,9 @@ func TestUploadJob(t *testing.T) {
 		{
 			name: "UploadFails",
 			artifact: poplar.TestArtifact{
-				Bucket:    s3Name,
 				Prefix:    s3Prefix,
 				LocalFile: filepath.Join("..", "testdata", "bson_example.bson"),
+				Path:      "DNE",
 			},
 			conf: poplar.BucketConfiguration{
 				Region: s3Region,
@@ -95,9 +95,7 @@ func TestUploadJob(t *testing.T) {
 			conf: poplar.BucketConfiguration{
 				Region: s3Region,
 			},
-			hasErr: true,
 		},
-
 		{
 			name: "UploadAndConvertDryRun",
 			artifact: poplar.TestArtifact{
@@ -126,7 +124,12 @@ func TestUploadJob(t *testing.T) {
 				assert.NoError(t, j.Error())
 			}
 
-			r, getErr := s3Bucket.Get(ctx, test.artifact.Path)
+			path := test.artifact.Path
+			if path == "" {
+				path = filepath.Base(test.artifact.LocalFile)
+			}
+
+			r, getErr := s3Bucket.Get(ctx, path)
 			if !test.dryRun && !test.hasErr && !test.noUpload {
 				require.NoError(t, getErr)
 				remoteData, err := ioutil.ReadAll(r)

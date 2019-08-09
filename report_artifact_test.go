@@ -141,13 +141,12 @@ func TestUpload(t *testing.T) {
 		{
 			name: "NoRemotePath",
 			artifact: &TestArtifact{
-				Bucket:    "bucket",
+				Bucket:    s3Name,
 				LocalFile: "testdata/bson_example.bson",
 			},
 			bucketConf: BucketConfiguration{
 				Region: s3Region,
 			},
-			hasErr: true,
 		},
 		{
 			name: "NilBucketConfiguration",
@@ -180,6 +179,17 @@ func TestUpload(t *testing.T) {
 				Region: s3Region,
 			},
 			hasErr: true,
+		},
+		{
+			name: "BucketSpecifiedFromConfiguration",
+			artifact: &TestArtifact{
+				Path:      "bson_example1.bson",
+				LocalFile: "testdata/bson_example.bson",
+			},
+			bucketConf: BucketConfiguration{
+				Name:   s3Name,
+				Region: s3Region,
+			},
 		},
 		{
 			name: "NoRegionSpecified",
@@ -243,8 +253,12 @@ func TestUpload(t *testing.T) {
 				require.Error(t, test.artifact.Upload(ctx, test.bucketConf, false))
 			} else {
 				for _, dryRun := range []bool{true, false} {
+					bucketName := test.artifact.Bucket
+					if bucketName == "" {
+						bucketName = test.bucketConf.Name
+					}
 					opts := pail.S3Options{
-						Name:   test.artifact.Bucket,
+						Name:   bucketName,
 						Prefix: test.artifact.Prefix,
 						Region: test.bucketConf.Region,
 					}
@@ -267,7 +281,6 @@ func TestUpload(t *testing.T) {
 					if dryRun {
 						require.Error(t, err)
 					} else {
-
 						require.NoError(t, err)
 						remoteData, err := ioutil.ReadAll(r)
 						require.NoError(t, err)
