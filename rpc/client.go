@@ -68,7 +68,7 @@ func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) 
 			if opts.SerializeUpload {
 				job.Run(ctx)
 				if err = job.Error(); err != nil {
-					return errors.Wrap(err, "problem uploading artifacts")
+					return errors.Wrap(err, "problem converting and uploading artifacts")
 				}
 			} else if err = jobQueue.Put(ctx, job); err != nil {
 				return errors.Wrap(err, "problem adding artifact job to upload queue")
