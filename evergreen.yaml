@@ -89,8 +89,8 @@ post:
   - command: s3.put
     type: system
     params:
-      aws_key: ${aws_key}
-      aws_secret: ${aws_secret}
+      aws_key: ${aws_s3_key}
+      aws_secret: ${aws_s3_secret}
       local_files_include_filter: ["gopath/src/github.com/evergreen-ci/poplar/build/cover.html"]
       remote_file: poplar/${task_id}/
       bucket: mciuploads
@@ -100,8 +100,8 @@ post:
   - command: s3.put
     type: system
     params:
-      aws_key: ${aws_key}
-      aws_secret: ${aws_secret}
+      aws_key: ${aws_s3_key}
+      aws_secret: ${aws_s3_secret}
       local_files_include_filter: ["gopath/src/github.com/evergreen-ci/poplar/build/cover.out"]
       remote_file: poplar/${task_id}/
       bucket: mciuploads
