@@ -8,7 +8,7 @@ imports:
   - name: github.com/mongodb/mongo-go-driver
     version: e8f52c4942686e6f1d9f366fa1e84b016aae0762
   - name: github.com/evergreen-ci/pail
-    version: 7b2f8e0b2d972ca621cad3777d68276a54da13d0
+    version: f18586040efc6a296edb4c589480f6385f5c90ee
   - name: github.com/mongodb/amboy
     version: 2b8431d235ec6c322dba74eff51988ebd8ac1f7f
 
