@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
@@ -35,21 +34,6 @@ func TestUploadJob(t *testing.T) {
 		hasErr   bool
 	}{
 		{
-			name: "ConvertFails",
-			artifact: poplar.TestArtifact{
-				Bucket:      s3Name,
-				Prefix:      s3Prefix,
-				LocalFile:   filepath.Join("..", "testdata", "bson_example.bson"),
-				Path:        "bsonFile",
-				PayloadTEXT: true,
-				PayloadFTDC: true,
-			},
-			conf: poplar.BucketConfiguration{
-				Region: s3Region,
-			},
-			hasErr: true,
-		},
-		{
 			name: "UploadFails",
 			artifact: poplar.TestArtifact{
 				Prefix:    s3Prefix,
@@ -62,7 +46,7 @@ func TestUploadJob(t *testing.T) {
 			hasErr: true,
 		},
 		{
-			name: "UploadAndConvert",
+			name: "Upload",
 			artifact: poplar.TestArtifact{
 				Bucket:    s3Name,
 				Prefix:    s3Prefix,
@@ -74,7 +58,7 @@ func TestUploadJob(t *testing.T) {
 			},
 		},
 		{
-			name: "UploadAndConvertNoLocalFile",
+			name: "UploadNoLocalFile",
 			artifact: poplar.TestArtifact{
 				Bucket: s3Name,
 				Prefix: s3Prefix,
@@ -86,18 +70,7 @@ func TestUploadJob(t *testing.T) {
 			noUpload: true,
 		},
 		{
-			name: "UploadAndConvertNoRemote",
-			artifact: poplar.TestArtifact{
-				Bucket:    s3Name,
-				Prefix:    s3Prefix,
-				LocalFile: filepath.Join("..", "testdata", "bson_example.bson"),
-			},
-			conf: poplar.BucketConfiguration{
-				Region: s3Region,
-			},
-		},
-		{
-			name: "UploadAndConvertDryRun",
+			name: "UploadDryRun",
 			artifact: poplar.TestArtifact{
 				Bucket:    s3Name,
 				Prefix:    s3Prefix,
@@ -119,7 +92,6 @@ func TestUploadJob(t *testing.T) {
 
 			if test.hasErr {
 				assert.Error(t, j.Error())
-				fmt.Println(j.Error())
 			} else {
 				assert.NoError(t, j.Error())
 			}
