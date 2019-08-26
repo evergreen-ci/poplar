@@ -17,6 +17,9 @@ import (
 
 const defaultChunkSize = 2048
 
+// SetBucketInfo sets any missing fields related to uploading an artifact using
+// the passed in `BucketConfiguration`. An error is returned if any required
+// fields are blank. This method should be used before calling `Upload`.
 func (a *TestArtifact) SetBucketInfo(conf BucketConfiguration) error {
 	if a.LocalFile == "" {
 		return errors.New("cannot upload unspecified file")
