@@ -33,6 +33,9 @@ func (a *TestArtifact) SetBucketInfo(conf BucketConfiguration) error {
 		}
 		a.Bucket = conf.Name
 	}
+	if a.Prefix == "" {
+		a.Prefix = conf.Prefix
+	}
 	if conf.Region == "" {
 		return errors.New("bucket configuration must specify a region")
 	}
