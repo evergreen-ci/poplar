@@ -110,6 +110,16 @@ func TestReportSetup(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, expectedReport, report)
 		})
+		t.Run("PatchBuild", func(t *testing.T) {
+			require.NoError(t, os.Setenv(MainlineEnv, fmt.Sprintf("%v", false)))
+			require.NoError(t, os.Setenv(OrderEnv, "NOT_AN_INT"))
+			report, err := ReportSetup(ReportTypeEnv, "")
+			assert.NoError(t, err)
+			assert.False(t, report.Mainline)
+			assert.Zero(t, report.Order)
+			require.NoError(t, os.Setenv(MainlineEnv, fmt.Sprintf("%v", expectedReport.Mainline)))
+			require.NoError(t, os.Setenv(OrderEnv, fmt.Sprintf("%d", expectedReport.Order)))
+		})
 		t.Run("InvalidOrder", func(t *testing.T) {
 			require.NoError(t, os.Setenv(OrderEnv, "NOT_AN_INT"))
 			report, err := ReportSetup(ReportTypeEnv, "")
