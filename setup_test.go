@@ -152,8 +152,8 @@ func TestDialCedar(t *testing.T) {
 
 	t.Run("ConnectToCedar", func(t *testing.T) {
 		conn, err := DialCedar(ctx, username, password, 10)
-		assert.NoError(t, err)
-		assert.NotNil(t, conn)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 		assert.NoError(t, conn.Close())
 	})
 	t.Run("IncorrectUsernameAndPassword", func(t *testing.T) {

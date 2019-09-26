@@ -46,7 +46,7 @@ const (
 
 // ReportSetup sets up a Report struct with the given ReportType and filename.
 // Note that not all ReportTypes require a filename (such as ReportTypeEnv), if
-// this is the case pass in an empty string.
+// this is the case, pass in an empty string for the filename.
 func ReportSetup(reportType ReportType, filename string) (*Report, error) {
 	switch reportType {
 	case ReportTypeJSON:
@@ -126,8 +126,8 @@ type userCredentials struct {
 }
 
 // DialCedar is a convenience function for creating a RPC client connection
-// with cedar via gRPC. The username and password are the LDAP credentials for
-// the cedar service.
+// with cedar via gRPC. The username and password are LDAP credentials for the
+// cedar service.
 func DialCedar(ctx context.Context, username, password string, retries int) (*grpc.ClientConn, error) {
 	cedarRPCAddress := "cedar.mongodb.com:7070"
 
