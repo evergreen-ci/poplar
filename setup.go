@@ -32,9 +32,6 @@ const (
 	BucketNameEnv   = "BUCKET_NAME"
 	BucketPrefixEnv = "BUCKET_PREFIX"
 	BucketRegionEnv = "BUCKET_REGION"
-
-	cedarAPIUserHeader = "Api-User"
-	cedarAPIKeyHeader  = "Api-Key"
 )
 
 // ReportType describes the marshalled report type.
