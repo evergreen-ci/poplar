@@ -142,17 +142,16 @@ func DialCedar(ctx context.Context, username, password string, retries int) (*gr
 	if err != nil {
 		return nil, errors.Wrap(err, "problem building credentials payload")
 	}
-	credsBody := bytes.NewBuffer(credsPayload)
 
 	ca, err := makeCedarCertRequest(ctx, "/ca", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem getting cedar root cert")
 	}
-	crt, err := makeCedarCertRequest(ctx, "/users/certificate", credsBody)
+	crt, err := makeCedarCertRequest(ctx, "/users/certificate", bytes.NewBuffer(credsPayload))
 	if err != nil {
 		return nil, errors.Wrap(err, "problem getting cedar user cert")
 	}
-	key, err := makeCedarCertRequest(ctx, "/users/certificate/key", credsBody)
+	key, err := makeCedarCertRequest(ctx, "/users/certificate/key", bytes.NewBuffer(credsPayload))
 	if err != nil {
 		return nil, errors.Wrap(err, "problem getting cedar user key")
 	}
@@ -170,7 +169,7 @@ func DialCedar(ctx context.Context, username, password string, retries int) (*gr
 }
 
 func makeCedarCertRequest(ctx context.Context, url string, body io.Reader) ([]byte, error) {
-	cedarHTTPAddress := "https://cedar.mongodb.com/v1/admin"
+	cedarHTTPAddress := "https://cedar.mongodb.com/rest/v1/admin"
 	client := &http.Client{Timeout: 5 * time.Minute}
 
 	req, err := http.NewRequest(http.MethodGet, cedarHTTPAddress+url, body)
