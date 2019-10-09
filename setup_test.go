@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/stretchr/testify/assert"
@@ -143,62 +141,5 @@ func TestReportSetup(t *testing.T) {
 			assert.Nil(t, report)
 			require.NoError(t, os.Setenv(MainlineEnv, fmt.Sprintf("%v", expectedReport.Mainline)))
 		})
-	})
-}
-
-func TestDialCedarOptionsValidate(t *testing.T) {
-	t.Run("NoUsername", func(t *testing.T) {
-		opts := &DialCedarOptions{
-			BaseAddress: "base",
-			RPCPort:     "9090",
-			Password:    "password",
-			Retries:     10,
-		}
-		assert.Error(t, opts.validate())
-	})
-	t.Run("NoPassword", func(t *testing.T) {
-		opts := &DialCedarOptions{
-			BaseAddress: "base",
-			RPCPort:     "9090",
-			Username:    "username",
-			Retries:     10,
-		}
-		assert.Error(t, opts.validate())
-	})
-	t.Run("NoRPCPort", func(t *testing.T) {
-		opts := &DialCedarOptions{
-			BaseAddress: "base",
-			Username:    "username",
-			Password:    "password",
-			Retries:     10,
-		}
-		assert.Error(t, opts.validate())
-	})
-	t.Run("DefaultBaseAddress", func(t *testing.T) {
-		opts := &DialCedarOptions{
-			Username: "username",
-			Password: "password",
-			Retries:  10,
-		}
-		assert.NoError(t, opts.validate())
-		assert.Equal(t, "cedar.mongodb.com", opts.BaseAddress)
-		assert.Equal(t, "7070", opts.RPCPort)
-	})
-	t.Run("ConfiguredOptions", func(t *testing.T) {
-		opts := &DialCedarOptions{
-			Client:      *http.Client{Timeout: time.Minute},
-			BaseAddress: "base",
-			RPCPort:     "9090",
-			Username:    "username",
-			Password:    "password",
-			Retries:     10,
-		}
-		assert.NoError(t, opts.validate())
-		assert.Equal(t, *http.Client{Timeout: time.Minute}, opts.Client)
-		assert.Equal(t, "base", opts.BaseAddress)
-		assert.Equal(t, "9090", opts.RPCPort)
-		assert.Equal(t, "username", opts.Username)
-		assert.Equal(t, "password:", opts.Password)
-		assert.Equal(t, 10, opts.Retries)
 	})
 }
