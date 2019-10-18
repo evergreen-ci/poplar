@@ -212,7 +212,8 @@ func (a *TestArtifact) jsonToFTDC(ctx context.Context, path string) (string, err
 
 	opts := ftdc.CollectJSONOptions{
 		OutputFilePrefix: strings.TrimSuffix(path, ".json"),
-		FileName:         path,
+		//FileName:         path,
+		InputSource: ftdcFile,
 	}
 	return path, ftdc.CollectJSONStream(ctx, opts)
 }
