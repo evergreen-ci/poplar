@@ -28,7 +28,7 @@ func (s *collectorService) CreateCollector(ctx context.Context, opts *CreateOpti
 	return &PoplarResponse{Name: opts.Name, Status: true}, nil
 }
 
-func (s *collectorService) CloseCollector(ctx context.Context, id PoplarID) (*PoplarResponse, error) {
+func (s *collectorService) CloseCollector(ctx context.Context, id *PoplarID) (*PoplarResponse, error) {
 	err := s.registry.Close(id.Name)
 
 	grip.Error(message.WrapError(err, message.Fields{
