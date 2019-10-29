@@ -35,8 +35,8 @@ message EventMetricsGauges {
 }
 
 service PoplarEventCollector {
-  rpc CreateRecorder(CreateOptions) returns (PoplarResponse);
+  rpc CreateCollector(CreateOptions) returns (PoplarResponse);
   rpc SendEvent(EventMetrics) returns (PoplarResponse);
   rpc StreamEvents(stream EventMetrics) returns (PoplarResponse);
-  rpc CloseRecorder(PoplarID) returns (PoplarResponse);
+  rpc CloseCollector(PoplarID) returns (PoplarResponse);
 }

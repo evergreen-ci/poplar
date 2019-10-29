@@ -17,7 +17,7 @@ type collectorService struct {
 	registry *poplar.RecorderRegistry
 }
 
-func (s *collectorService) CreateRecorder(ctx context.Context, opts *CreateOptions) (*PoplarResponse, error) {
+func (s *collectorService) CreateCollector(ctx context.Context, opts *CreateOptions) (*PoplarResponse, error) {
 	if _, ok := s.registry.GetCollector(opts.Name); !ok {
 		_, err := s.registry.Create(opts.Name, opts.Export())
 		if err != nil {
@@ -28,7 +28,7 @@ func (s *collectorService) CreateRecorder(ctx context.Context, opts *CreateOptio
 	return &PoplarResponse{Name: opts.Name, Status: true}, nil
 }
 
-func (s *collectorService) CloseRecorder(ctx context.Context, id PoplarID) (*PoplarResponse, error) {
+func (s *collectorService) CloseCollector(ctx context.Context, id PoplarID) (*PoplarResponse, error) {
 	err := s.registry.Close(id.Name)
 
 	grip.Error(message.WrapError(err, message.Fields{
