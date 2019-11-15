@@ -132,7 +132,6 @@ proto:vendor/cedar.proto
 	protoc --go_out=plugins=grpc:rpc/internal *.proto
 	protoc --go_out=plugins=grpc:rpc/internal vendor/cedar.proto
 	protoc --go_out=plugins=grpc:collector *.proto
-	sed -i 's/package internal/package collector/' collector/*.pb.go
 	mv rpc/internal/vendor/cedar.pb.go rpc/internal/cedar.pb.go
 clean:
 	rm -rf rpc/internal/*.pb.go

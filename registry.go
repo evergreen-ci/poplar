@@ -58,14 +58,18 @@ func (t RecorderType) Validate() error {
 	}
 }
 
+// Validate the underyling events collector type.
 func (t EventsCollectorType) Validate() error {
 	switch t {
 	case EventsCollectorBasic, EventsCollectorInterval100ms, EventsCollectorInterval1s,
 		EventsCollectorPassthrough, EventsCollectorRandomSampling10, EventsCollectorRandomSampling25,
 		EventsCollectorRandomSampling50, EventsCollectorSampling100, EventsCollectorSampling100k, EventsCollectorSampling10k, EventsCollectorSampling1k:
 
-	}
+		return nil
+	default:
+		return errors.Errorf("%s is not a supported events collector type", t)
 
+	}
 }
 
 type recorderInstance struct {
@@ -75,7 +79,7 @@ type recorderInstance struct {
 	eventsCollector events.Collector
 	tracker         *customEventTracker
 	ctx             context.Context
-	cancel          context.WithCancel
+	cancel          context.CancelFunc
 	isDynamic       bool
 	isCustom        bool
 	isEvents        bool
@@ -300,7 +304,7 @@ type CreateOptions struct {
 	ChunkSize int
 	Streaming bool
 	Dynamic   bool
-	Buffer    bool
+	Buffered  bool
 	Recorder  RecorderType
 	Events    EventsCollectorType
 }
@@ -326,7 +330,7 @@ func (opts *CreateOptions) build() (*recorderInstance, error) {
 	out := &recorderInstance{
 		isDynamic: opts.Dynamic,
 		file:      file,
-		isEvents:  outs.Events != "",
+		isEvents:  opts.Events != "",
 	}
 
 	out.ctx, out.cancel = context.WithCancel(context.Background())
@@ -343,8 +347,8 @@ func (opts *CreateOptions) build() (*recorderInstance, error) {
 	default:
 		return nil, errors.New("invalid collector defined")
 	}
-	if opts.Buffer {
-		out.collector = ftdc.NewBufferedCollector(ctx, 4*opts.ChunkSize, out.collector)
+	if opts.Buffered {
+		out.collector = ftdc.NewBufferedCollector(out.ctx, 4*opts.ChunkSize, out.collector)
 	}
 
 	switch opts.Events {
