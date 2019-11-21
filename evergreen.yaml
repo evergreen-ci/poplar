@@ -11,7 +11,6 @@ variables:
     # correspond to a make target for the build operation.
     name: test
     commands:
-      - func: git-config-windows-api-length
       - command: git.get_project
         type: system
         params:
@@ -24,16 +23,6 @@ variables:
 #              Functions              #
 #######################################
 functions:
-  #TODO: remove this function once BUILD-8571 is complete.
-  git-config-windows-api-length:
-    command: shell.exec
-    type: setup
-    params:
-      silent: true
-      script: |
-        if [ "Windows_NT" == "$OS" ]; then
-          git config --system core.longpaths true
-        fi
   setup-credentials:
     command: shell.exec
     type: setup
@@ -153,6 +142,8 @@ buildvariants:
     display_name: Race Detector (Arch Linux)
     expansions:
       mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.1.tgz
+      goroot: /opt/golang/go1.12
+      gobin: /opt/golang/go1.12/bin/go
     run_on:
       - archlinux-test
       - archlinux-build
