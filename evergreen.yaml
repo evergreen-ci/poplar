@@ -16,7 +16,6 @@ variables:
         type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/poplar
-      - func: setup-credentials
       - func: run-make
         vars: { target: "${task_name}" }
 
@@ -34,28 +33,6 @@ functions:
         if [ "Windows_NT" == "$OS" ]; then
           git config --system core.longpaths true
         fi
-  setup-credentials:
-    command: shell.exec
-    type: setup
-    params:
-      silent: true
-      script: |
-        if [ "Windows_NT" == "$OS" ]; then
-          export AWS_DIR=/cygdrive/c/Users/$USER/.aws
-        else
-          export AWS_DIR=$HOME/.aws
-        fi
-
-        mkdir $AWS_DIR
-        cat <<EOF > $AWS_DIR/config
-        [default]
-        region = us-east-1
-        EOF
-        cat <<EOF > $AWS_DIR/credentials
-        [default]
-        aws_access_key_id = ${aws_key}
-        aws_secret_access_key = ${aws_secret}
-        EOF
   run-make:
     command: subprocess.exec
     type: test
@@ -71,6 +48,9 @@ functions:
         USERPROFILE: C:\\Users\\Administrator
         LDAP_USER: ${ldap_user}
         LDAP_PASSWORD: ${ldap_password}
+        AWS_ACCESS_KEY_ID: ${aws_key}
+        AWS_SECRET_ACCESS_KEY: ${aws_secret}
+        AWS_DEFAULT_REGION: us-east-1
 
 #######################################
 #                Tasks                #
