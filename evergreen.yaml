@@ -39,7 +39,6 @@ functions:
         LDAP_PASSWORD: ${ldap_password}
         AWS_ACCESS_KEY_ID: ${aws_key}
         AWS_SECRET_ACCESS_KEY: ${aws_secret}
-        AWS_DEFAULT_REGION: us-east-1
 
 #######################################
 #                Tasks                #
