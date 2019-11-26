@@ -22,16 +22,6 @@ variables:
 #              Functions              #
 #######################################
 functions:
-  #TODO: remove this function once BUILD-8571 is complete.
-  git-config-windows-api-length:
-    command: shell.exec
-    type: setup
-    params:
-      silent: true
-      script: |
-        if [ "Windows_NT" == "$OS" ]; then
-          git config --system core.longpaths true
-        fi
   run-make:
     command: subprocess.exec
     type: test
@@ -110,7 +100,6 @@ tasks:
         type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/poplar
-      - func: setup-credentials
       - func: run-make
         vars:
           target: "coverage-html"
