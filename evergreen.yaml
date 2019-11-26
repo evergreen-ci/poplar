@@ -22,7 +22,6 @@ variables:
 #              Functions              #
 #######################################
 functions:
-<<<<<<< HEAD
   #TODO: remove this function once BUILD-8571 is complete.
   git-config-windows-api-length:
     command: shell.exec
