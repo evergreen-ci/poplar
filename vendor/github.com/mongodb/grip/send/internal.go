@@ -1,6 +1,7 @@
 package send
 
 import (
+	"context"
 	"errors"
 
 	"github.com/mongodb/grip/level"
@@ -13,15 +14,18 @@ import (
 // under-priority and unloggable messages. Used  for testing
 // purposes.
 type InternalSender struct {
-	name   string
-	level  LevelInfo
-	output chan *InternalMessage
+	name         string
+	level        LevelInfo
+	formatter    MessageFormatter
+	errorHandler ErrorHandler
+	output       chan *InternalMessage
 }
 
 // InternalMessage provides a complete representation of all
 // information associated with a logging event.
 type InternalMessage struct {
-	Message  message.Composer
+	Message message.Composer
+
 	Level    LevelInfo
 	Logged   bool
 	Priority level.Priority
@@ -53,12 +57,14 @@ func MakeInternalLogger() *InternalSender {
 	}
 }
 
-func (s *InternalSender) Name() string                          { return s.name }
-func (s *InternalSender) SetName(n string)                      { s.name = n }
-func (s *InternalSender) Close() error                          { close(s.output); return nil }
-func (s *InternalSender) Level() LevelInfo                      { return s.level }
-func (s *InternalSender) SetErrorHandler(_ ErrorHandler) error  { return nil }
-func (s *InternalSender) SetFormatter(_ MessageFormatter) error { return nil }
+func (s *InternalSender) Name() string                           { return s.name }
+func (s *InternalSender) SetName(n string)                       { s.name = n }
+func (s *InternalSender) Close() error                           { close(s.output); return nil }
+func (s *InternalSender) Level() LevelInfo                       { return s.level }
+func (s *InternalSender) SetErrorHandler(eh ErrorHandler) error  { s.errorHandler = eh; return nil }
+func (s *InternalSender) ErrorHandler() ErrorHandler             { return s.errorHandler }
+func (s *InternalSender) SetFormatter(mf MessageFormatter) error { s.formatter = mf; return nil }
+func (s *InternalSender) Formatter() MessageFormatter            { return s.formatter }
 func (s *InternalSender) SetLevel(l LevelInfo) error {
 	if !l.Valid() {
 		return errors.New("invalid level")
@@ -102,3 +108,5 @@ func (s *InternalSender) Send(m message.Composer) {
 		Logged:   s.Level().ShouldLog(m),
 	}
 }
+
+func (s *InternalSender) Flush(_ context.Context) error { return nil }
