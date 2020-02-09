@@ -15,7 +15,7 @@ imports:
   - name: github.com/evergreen-ci/pail
     version: f18586040efc6a296edb4c589480f6385f5c90ee
   - name: github.com/mongodb/amboy
-    version: 96df5bcb9f5b2270f9370f5e02b6ece5dce730ae
+    version: 89691c8c27abb1d0374f24fb0b645143fc043f74
   - name: github.com/evergreen-ci/aviation
     version: d74791c0d819b6f7908cced0dd37e6ab3fb9eeae
 
