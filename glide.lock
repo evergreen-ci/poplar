@@ -5,15 +5,17 @@ imports:
     version: 8b996adb830457905c1f23c0f8738f6ec36e0917
   - name: github.com/evergreen-ci/birch
     version: da7e58b5cca1d63dc9181790f6d69fca759bb78a
+  - name: github.com/google/uuid
+    version: c2e93f3ae59f2904160ceaab466009f965df46d6
 
   - name: github.com/mongodb/grip
-    version: 2e402613ba129030dffcf05f53f185ea52d350c2
+    version: 7037e69a48d124757a3c61b53c8a4a24d0de2699
   - name: github.com/mongodb/mongo-go-driver
     version: e8f52c4942686e6f1d9f366fa1e84b016aae0762
   - name: github.com/evergreen-ci/pail
     version: f18586040efc6a296edb4c589480f6385f5c90ee
   - name: github.com/mongodb/amboy
-    version: 85bb9679689a39093947de9b5590064e2a264ae5
+    version: 96df5bcb9f5b2270f9370f5e02b6ece5dce730ae
   - name: github.com/evergreen-ci/aviation
     version: d74791c0d819b6f7908cced0dd37e6ab3fb9eeae
 

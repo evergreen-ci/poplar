@@ -137,6 +137,8 @@ vendor:
 
 .PHONY:vendor
 vendor-clean:
+	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/google/uuid
+	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/google/uuid
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/montanaflynn/stats/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/stretchr/testify/
 	rm -rf vendor/github.com/mongodb/grip/vendor/golang.org/x/sys/
