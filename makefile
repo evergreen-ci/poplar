@@ -69,7 +69,7 @@ $(buildDir):$(srcFiles) compile
 	@mkdir -p $@
 $(buildDir)/output.coverage:$(buildDir) $(testFiles) .FORCE
 	$(goEnv) $(gobin) test $(testArgs) -coverprofile $@ -cover $(packages)
-$(buildDir)/coverage.html:$(buildDir)/output.coverage.html
+$(buildDir)/output.coverage.html:$(buildDir)/output.coverage
 	$(goEnv) $(gobin) tool cover -html=$< -o $@
 #  targets to generate gotest output from the linter.
 $(buildDir)/output.%.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
