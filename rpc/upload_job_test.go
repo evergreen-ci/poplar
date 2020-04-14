@@ -29,7 +29,7 @@ func TestUploadJob(t *testing.T) {
 	client := utility.GetHTTPClient()
 	defer utility.PutHTTPClient(client)
 
-	s3Bucket, err := pail.NewS3BucketWithBucket(s3Opts, client)
+	s3Bucket, err := pail.NewS3BucketWithClient(s3Opts, client)
 	require.NoError(t, err)
 
 	for _, test := range []struct {
