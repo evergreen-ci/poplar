@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/pkg/errors"
+	"go.mongodb.com/mongo-driver/bson"
 	yaml "gopkg.in/yaml.v2"
 )
 

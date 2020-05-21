@@ -9,8 +9,8 @@ import (
 	"strconv"
 
 	"github.com/evergreen-ci/aviation/services"
-	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/pkg/errors"
+	"go.mongodb.com/mongo-driver/bson"
 	"google.golang.org/grpc"
 	yaml "gopkg.in/yaml.v2"
 )
