@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"sync"
-	"time"
 
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/utility"
@@ -17,7 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var gloablStreamsCoorindator = &streamsCoordinator{}
+var globalStreamsCoordinator = &streamsCoordinator{}
 
 type collectorService struct {
 	registry *poplar.RecorderRegistry
@@ -63,7 +62,8 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 	ctx := srv.Context()
 
 	var (
-		collector events.Collector
+		group     *streamGroup
+		streamID  string
 		eventName string
 	)
 
@@ -80,20 +80,26 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 				Status: false,
 			})
 		}
-		if collector == nil {
+		if group == nil {
 			if event.Name == "" {
 				return status.Error(codes.InvalidArgument, "registries must be named")
 			}
 
 			eventName = event.Name
-			var ok bool
-			collector, ok = s.registry.GetEventsCollector(eventName)
+			collector, ok := s.registry.GetEventsCollector(eventName)
 			if !ok {
 				return status.Errorf(codes.NotFound, "no registry named %s", eventName)
 			}
+
+			group, streamID = globalStreamsCoordinator.addStream(eventName, collector)
+			defer group.removeStream(streamID)
 		}
 
-		if err := collector.AddEvent(event.Export()); err != nil {
+		if event.Name != eventName {
+			return status.Errorf(codes.InvalidArgument, "cannot request different registries in the same stream")
+		}
+
+		if err := group.addEvent(streamID, event.Export()); err != nil {
 			return status.Errorf(codes.Internal, "problem persisting argument %s", err.Error())
 		}
 
@@ -111,27 +117,22 @@ type streamsCoordinator struct {
 
 type streamGroup struct {
 	collector events.Collector
-	streams   map[string]grip.Catcher
+	streams   map[string]chan error
 	eventHeap *PerformanceHeap
-	cancel    context.CancelFunc
-	closed    bool
 	mu        sync.Mutex
 }
 
-func (sc *streamsCoordinator) addStream(ctx context.Context, name string, collector events.Collector) (*streamGroup, string) {
+func (sc *streamsCoordinator) addStream(name string, collector events.Collector) (*streamGroup, string) {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
 
 	group, ok := sc.groups[name]
-	if !ok || group.closed {
-		ctx, cancel := context.WithCancel(ctx)
+	if !ok {
 		group := &streamGroup{
 			collector: collector,
 			eventHeap: &PerformanceHeap{},
-			cancel:    cancel,
 		}
 		heap.Init(group.eventHeap)
-		go group.timedFlush(5 * time.Second)
 		sc.groups[name] = group
 	}
 
@@ -139,7 +140,7 @@ func (sc *streamsCoordinator) addStream(ctx context.Context, name string, collec
 	defer group.mu.Unlock()
 
 	id := utility.RandomString()
-	sc.streams[id] = grip.NewBasicCatcher()
+	group.streams[id] = make(chan error)
 
 	return group, id
 }
@@ -148,92 +149,45 @@ func (sg *streamGroup) addEvent(id string, event *events.Performance) error {
 	sg.mu.Lock()
 	defer sg.mu.Unlock()
 
-	catcher, ok := sg.streams[id]
+	errChan, ok := sg.streams[id]
 	if !ok {
-		return errors.Errorf("stream %s does not exist in stream group for %s", id, name)
+		return errors.Errorf("stream %s does not exist in this stream group", id)
 	}
 
-	if catcher.HasErrors() {
-		return catcher.Resolve()
+	if sg.eventHeap.Len() == len(sg.streams) {
+		sg.pop()
 	}
+	sg.eventHeap.SafePush(&performanceHeapItem{errChan: errChan, event: event})
 
-	sg.eventHeap.SafePush(event)
+	sg.mu.Unlock()
+	err := <-errChan
+	sg.mu.Lock()
+
+	return err
 }
 
-func (sg *streamGroup) getErrors(id string) error {
+func (sg *streamGroup) pop() {
+	item := sg.eventHeap.SafePop()
+	if item != nil {
+		item.errChan <- sg.collector.AddEvent(item.event)
+	}
+}
+
+func (sg *streamGroup) removeStream(id string) {
 	sg.mu.Lock()
 	defer sg.mu.Unlock()
 
-	catcher, ok := sg.streams[id]
-	if !ok {
-		return errors.Errorf("stream %s does not exist in stream group for %s", id, name)
-	}
-	sg.streams[id] = grip.NewBasicCatcher()
-
-	return catcher.Resolve()
-}
-
-func (sg *streamGroup) closeGroup() error {
-	sg.mu.Lock()
-	defer sg.mu.Unlock()
-
-	sg.cancel()
-	sg.flush(time.Hour)
-
-	catcher := grip.NewBasicCatcher()
-	for _, c := range sg.streams {
-		catcher.Add(c.Resolve())
-	}
-
-	sg.closed = true
-
-	return catcher.Resolve()
-}
-
-func (sg *streamGroup) timedFlush(ctx context.Context, flushInterval time.Duration) {
-	timer := time.NewTimer(b.opts.FlushInterval)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			sg.mu.Lock()
-			sg.flush(time.Hour)
-			sg.mu.Unlock()
-			return
-		case <-timer.C:
-			sg.mu.Lock()
-			sg.flush(flushInterval)
-			sg.mu.Unlock()
-		}
-	}
-}
-
-func (sg *streamGroup) flush(flushInterval time.Duration) {
-	if sg.closed {
-		return
-	}
-
-	for sg.eventHeap.Len() > 0 {
-		ts := sg.eventHeap.SafePeek()
-		if time.Since(ts) < flushInterval {
-			item := sg.eventHeap.SafePop()
-			err := sg.collector.AddEvent(item.event)
-			sg.streams[id].Add(err)
-		} else {
-			break
-		}
-	}
+	delete(sg.streams, id)
 }
 
 // PerformanceHeap is a min heap of ftdc/events.Performance objects.
 type PerformanceHeap struct {
-	items []performanceHeapItem
+	items []*performanceHeapItem
 }
 
 type performanceHeapItem struct {
-	id    string
-	event *events.Performance
+	errChan chan error
+	event   *events.Performance
 }
 
 // Len returns the size of the heap.
@@ -251,7 +205,7 @@ func (h PerformanceHeap) Swap(i, j int) { h.items[i], h.items[j] = h.items[j], h
 // Push appends a new object of type Performance to the heap. Note that if x is
 // not a performanceHeapItem object nothing happens.
 func (h *PerformanceHeap) Push(x interface{}) {
-	item, ok := x.(performanceHeapItem)
+	item, ok := x.(*performanceHeapItem)
 	if !ok {
 		return
 	}
@@ -271,7 +225,7 @@ func (h *PerformanceHeap) Pop() interface{} {
 
 // SafePush is a wrapper function around heap.Push that ensures, during compile
 // time, that the correct type of object is put in the heap.
-func (h *PerformanceHeap) SafePush(item performanceHeapItem) {
+func (h *PerformanceHeap) SafePush(item *performanceHeapItem) {
 	heap.Push(h, item)
 }
 
@@ -285,16 +239,5 @@ func (h *PerformanceHeap) SafePop() *performanceHeapItem {
 
 	i := heap.Pop(h)
 	item := i.(*performanceHeapItem)
-	return it
-}
-
-// SafePeek returns the timestamp of the item at the top of the heap without
-// popping it off the heap. If there are not items in the heap, the zero
-// time.Time value is returned.
-func (h *PerformanceHeap) SafePeek() time.Time {
-	if h.Len() == 0 {
-		return time.Time{}
-	}
-
-	return h.items[0].event.Timestamp
+	return item
 }
