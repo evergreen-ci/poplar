@@ -55,7 +55,6 @@ func (s *collectorService) SendEvent(ctx context.Context, event *EventMetrics) (
 	err := collector.AddEvent(event.Export())
 
 	return &PoplarResponse{Name: event.Name, Status: err == nil}, nil
-
 }
 
 func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsServer) error {
