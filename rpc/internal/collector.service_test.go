@@ -1,30 +1,50 @@
 package internal
 
 import (
+	"bytes"
 	"context"
+	fmt "fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/evergreen-ci/poplar"
 	duration "github.com/golang/protobuf/ptypes/duration"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/mongodb/ftdc"
+	"github.com/mongodb/grip"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 )
 
 func getTestCollectorService(tmpDir string) *collectorService {
 	registry := poplar.NewRegistry()
 	registry.Create("collector", poplar.CreateOptions{
-		Path:     filepath.Join(tmpDir, "exists"),
-		Recorder: poplar.RecorderPerf,
-		Dynamic:  true,
-		Events:   poplar.EventsCollectorBasic,
+		Path:      filepath.Join(tmpDir, "exists"),
+		ChunkSize: 5,
+		Recorder:  poplar.RecorderPerf,
+		Dynamic:   true,
+		Events:    poplar.EventsCollectorBasic,
+	})
+	registry.Create("multiple", poplar.CreateOptions{
+		Path:      filepath.Join(tmpDir, "multiple"),
+		ChunkSize: 5,
+		Recorder:  poplar.RecorderPerf,
+		Dynamic:   true,
+		Events:    poplar.EventsCollectorBasic,
 	})
 
 	return &collectorService{
 		registry: registry,
+		coordinator: &streamsCoordinator{
+			groups: map[string]*streamGroup{},
+		},
 	}
 }
 
@@ -162,4 +182,269 @@ func TestSendEvent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRegisterStream(t *testing.T) {
+	tmpDir, err := ioutil.TempDir(".", "register-stream-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+	}()
+	svc := getTestCollectorService(tmpDir)
+
+	for _, test := range []struct {
+		name          string
+		collectorName *CollectorName
+		resp          *PoplarResponse
+		hasErr        bool
+	}{
+		{
+			name:          "EmptyName",
+			collectorName: &CollectorName{},
+			resp:          nil,
+			hasErr:        true,
+		},
+		{
+			name:          "CollectorDNE",
+			collectorName: &CollectorName{Name: "DNE"},
+			resp:          nil,
+			hasErr:        true,
+		},
+		{
+			name:          "CollectorExists",
+			collectorName: &CollectorName{Name: "collector"},
+			resp:          &PoplarResponse{Name: "collector", Status: true},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			resp, registerErr := svc.RegisterStream(context.TODO(), test.collectorName)
+			assert.Equal(t, test.resp, resp)
+			id, group, getErr := svc.coordinator.getStream(test.collectorName.Name)
+			if test.hasErr {
+				assert.Error(t, registerErr)
+				assert.Error(t, getErr)
+
+			} else {
+				assert.NoError(t, registerErr)
+				assert.NotEmpty(t, id)
+				assert.NotNil(t, group)
+				assert.NoError(t, getErr)
+			}
+
+		})
+	}
+}
+
+func TestStreamEvent(t *testing.T) {
+	tmpDir, err := ioutil.TempDir(".", "stream-event-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+	}()
+	svc := getTestCollectorService(tmpDir)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	address := fmt.Sprintf("localhost:%d", 7070)
+	require.NoError(t, startCollectorService(ctx, svc, address))
+	client, err := getCollectorGRPCClient(ctx, address, []grpc.DialOption{grpc.WithInsecure()})
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		name     string
+		events   []*EventMetrics
+		resp     *PoplarResponse
+		register bool
+		hasErr   bool
+	}{
+		{
+			name:   "Unregistered",
+			events: []*EventMetrics{{Name: "DNE"}},
+			resp:   nil,
+			hasErr: true,
+		},
+		{
+			name:   "NoName",
+			events: []*EventMetrics{{}},
+			resp:   nil,
+			hasErr: true,
+		},
+		{
+			name: "DifferentNames",
+			events: []*EventMetrics{
+				{
+					Name: "collector",
+					Time: &timestamp.Timestamp{},
+					Timers: &EventMetricsTimers{
+						Total:    &duration.Duration{},
+						Duration: &duration.Duration{},
+					},
+				},
+				{
+					Name: "anotherName",
+					Time: &timestamp.Timestamp{},
+					Timers: &EventMetricsTimers{
+						Total:    &duration.Duration{},
+						Duration: &duration.Duration{},
+					},
+				},
+			},
+			resp:     nil,
+			register: true,
+			hasErr:   true,
+		},
+		{
+			name: "AddEvents",
+			events: []*EventMetrics{
+				{
+					Name: "collector",
+					Time: &timestamp.Timestamp{},
+					Timers: &EventMetricsTimers{
+						Total:    &duration.Duration{},
+						Duration: &duration.Duration{},
+					},
+				},
+				{
+					Name: "collector",
+					Time: &timestamp.Timestamp{},
+					Timers: &EventMetricsTimers{
+						Total:    &duration.Duration{},
+						Duration: &duration.Duration{},
+					},
+				},
+			},
+			resp:     &PoplarResponse{Name: "collector", Status: true},
+			register: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stream, err := client.StreamEvents(ctx)
+			require.NoError(t, err)
+
+			if test.register {
+				_, err = client.RegisterStream(ctx, &CollectorName{Name: "collector"})
+				require.NoError(t, err)
+			}
+
+			catcher := grip.NewBasicCatcher()
+			for i := 0; i < len(test.events); i++ {
+				catcher.Add(stream.Send(test.events[i]))
+			}
+			resp, err := stream.CloseAndRecv()
+			catcher.Add(err)
+			assert.Equal(t, test.resp, resp)
+
+			if test.hasErr {
+				assert.Error(t, catcher.Resolve())
+			} else {
+				assert.NoError(t, catcher.Resolve())
+			}
+		})
+	}
+
+	t.Run("MultipleStreams", func(t *testing.T) {
+		catcher := grip.NewBasicCatcher()
+		var wg sync.WaitGroup
+		event := &EventMetrics{
+			Name: "multiple",
+			Time: &timestamp.Timestamp{},
+			Timers: &EventMetricsTimers{
+				Total:    &duration.Duration{},
+				Duration: &duration.Duration{},
+			},
+		}
+
+		streams := make([]PoplarEventCollector_StreamEventsClient, 3)
+		for i := range streams {
+			var err error
+			_, err = client.RegisterStream(ctx, &CollectorName{Name: "multiple"})
+			require.NoError(t, err)
+			streams[i], err = client.StreamEvents(ctx)
+			require.NoError(t, err)
+
+			wg.Add(1)
+			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i) * -time.Minute).Unix()}
+			go sendToStream(t, streams[i], event, catcher, &wg, false)
+		}
+		wg.Wait()
+
+		for i := range streams {
+			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i) * -time.Second).Unix()}
+			wg.Add(1)
+			go sendToStream(t, streams[i], event, catcher, &wg, true)
+		}
+		wg.Wait()
+		require.NoError(t, catcher.Resolve())
+
+		collector, ok := svc.registry.GetEventsCollector("collector")
+		require.True(t, ok)
+		data, err := collector.Resolve()
+		require.NoError(t, err)
+		chunkIt := ftdc.ReadChunks(context.TODO(), bytes.NewReader(data))
+		defer chunkIt.Close()
+		for i := 0; chunkIt.Next(); i++ {
+			chunk := chunkIt.Chunk()
+
+			lastTS := time.Time{}
+			for _, metric := range chunk.Metrics {
+				switch name := metric.Key(); name {
+				case "ts":
+					var lastVal int64
+					fmt.Println(len(metric.Values))
+					for _, val := range metric.Values {
+						require.True(t, lastVal <= val)
+						lastVal = val
+					}
+					ts := time.Unix(lastVal/1000, lastVal%1000*1000000)
+					require.True(t, ts.After(lastTS))
+					lastTS = ts
+				default:
+					continue
+				}
+			}
+		}
+	})
+}
+
+func sendToStream(t *testing.T, stream PoplarEventCollector_StreamEventsClient, event *EventMetrics, catcher grip.Catcher, wg *sync.WaitGroup, closeStream bool) {
+	defer wg.Done()
+
+	catcher.Add(stream.Send(event))
+	if closeStream {
+		_, err := stream.CloseAndRecv()
+		catcher.Add(err)
+	}
+}
+
+func startCollectorService(ctx context.Context, svc *collectorService, address string) error {
+	lis, err := net.Listen("tcp", address)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	s := grpc.NewServer()
+	RegisterPoplarEventCollectorServer(s, svc)
+
+	go func() {
+		_ = s.Serve(lis)
+	}()
+	go func() {
+		<-ctx.Done()
+		s.Stop()
+	}()
+
+	return nil
+}
+
+func getCollectorGRPCClient(ctx context.Context, address string, opts []grpc.DialOption) (PoplarEventCollectorClient, error) {
+	conn, err := grpc.DialContext(ctx, address, opts...)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	go func() {
+		<-ctx.Done()
+		_ = conn.Close()
+	}()
+
+	return NewPoplarEventCollectorClient(conn), nil
 }

@@ -16,10 +16,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var globalStreamsCoordinator = &streamsCoordinator{}
-
 type collectorService struct {
-	registry *poplar.RecorderRegistry
+	registry    *poplar.RecorderRegistry
+	coordinator *streamsCoordinator
 }
 
 func (s *collectorService) CreateCollector(ctx context.Context, opts *CreateOptions) (*PoplarResponse, error) {
@@ -42,12 +41,10 @@ func (s *collectorService) CloseCollector(ctx context.Context, id *PoplarID) (*P
 	}))
 
 	return &PoplarResponse{Name: id.Name, Status: err == nil}, nil
-
 }
 
 func (s *collectorService) SendEvent(ctx context.Context, event *EventMetrics) (*PoplarResponse, error) {
 	collector, ok := s.registry.GetEventsCollector(event.Name)
-
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "no registry named %s", event.Name)
 	}
@@ -55,6 +52,18 @@ func (s *collectorService) SendEvent(ctx context.Context, event *EventMetrics) (
 	err := collector.AddEvent(event.Export())
 
 	return &PoplarResponse{Name: event.Name, Status: err == nil}, nil
+}
+
+func (s *collectorService) RegisterStream(ctx context.Context, name *CollectorName) (*PoplarResponse, error) {
+	if name.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "registries must be named")
+	}
+
+	if err := s.coordinator.addStream(name.Name, s.registry); err != nil {
+		return nil, status.Errorf(codes.NotFound, "no registry named %s", name.Name)
+	}
+
+	return &PoplarResponse{Name: name.Name, Status: true}, nil
 }
 
 func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsServer) error {
@@ -85,12 +94,10 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 			}
 
 			eventName = event.Name
-			collector, ok := s.registry.GetEventsCollector(eventName)
-			if !ok {
-				return status.Errorf(codes.NotFound, "no registry named %s", eventName)
+			streamID, group, err = s.coordinator.getStream(eventName)
+			if err != nil {
+				return status.Error(codes.FailedPrecondition, errors.Wrap(err, "failed to get stream").Error())
 			}
-
-			group, streamID = globalStreamsCoordinator.addStream(eventName, collector)
 			defer group.removeStream(streamID)
 		}
 
@@ -108,28 +115,46 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 	}
 }
 
+// streamsCoordinator enables coordination of multiple streams writing to the
+// the same ftdc/events.Collector.
 type streamsCoordinator struct {
-	ctx    context.Context
 	groups map[string]*streamGroup
 	mu     sync.Mutex
 }
 
+// streamGroup represents a group of streams writing to the same
+// ftdc/events.Collector. Each group is tracked by the streamCoordinator, which
+// only allows one streamGroup per collector. Stream groups coordinate writes
+// to the collector using a min heap that sorts based on the timestamp of each
+// event. The size of the min heap is never greater than the number of streams
+// in the group.
 type streamGroup struct {
-	collector events.Collector
-	streams   map[string]chan error
-	eventHeap *PerformanceHeap
-	mu        sync.Mutex
+	collector        events.Collector
+	availableStreams []string
+	streams          map[string]chan error
+	eventHeap        *PerformanceHeap
+	mu               sync.Mutex
 }
 
-func (sc *streamsCoordinator) addStream(name string, collector events.Collector) (*streamGroup, string) {
+// addStream adds a new stream to the group for the given collector. If the
+// collector does not exist, an error is returned. If the stream group for the
+// collector does not exist, it is created.
+func (sc *streamsCoordinator) addStream(name string, registry *poplar.RecorderRegistry) error {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
 
+	collector, ok := registry.GetEventsCollector(name)
+	if !ok {
+		return errors.New("collector '%s' not found")
+	}
+
 	group, ok := sc.groups[name]
 	if !ok {
-		group := &streamGroup{
-			collector: collector,
-			eventHeap: &PerformanceHeap{},
+		group = &streamGroup{
+			collector:        collector,
+			availableStreams: []string{},
+			streams:          map[string]chan error{},
+			eventHeap:        &PerformanceHeap{},
 		}
 		heap.Init(group.eventHeap)
 		sc.groups[name] = group
@@ -140,10 +165,35 @@ func (sc *streamsCoordinator) addStream(name string, collector events.Collector)
 
 	id := utility.RandomString()
 	group.streams[id] = make(chan error)
+	group.availableStreams = append(group.availableStreams, id)
 
-	return group, id
+	return nil
 }
 
+// getStream returns a stream id and stream group for the given collector name.
+// If addStream was not called first, this will error.
+func (sc *streamsCoordinator) getStream(name string) (string, *streamGroup, error) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+
+	group, ok := sc.groups[name]
+	if !ok {
+		return "", nil, errors.Errorf("no group for '%s'", name)
+	}
+
+	if len(group.availableStreams) == 0 {
+		return "", nil, errors.New("must register first")
+	}
+	id := group.availableStreams[0]
+	group.availableStreams = group.availableStreams[1:]
+
+	return id, group, nil
+}
+
+// addEvent writes the given event to the collector from the given stream. If
+// the stream does not exist an error is returned. Note that this function
+// blocks until all streams in the group have called addEvent and the minimum
+// timestamp can be guaranteed.
 func (sg *streamGroup) addEvent(id string, event *events.Performance) error {
 	sg.mu.Lock()
 	defer sg.mu.Unlock()
@@ -153,10 +203,11 @@ func (sg *streamGroup) addEvent(id string, event *events.Performance) error {
 		return errors.Errorf("stream %s does not exist in this stream group", id)
 	}
 
-	if sg.eventHeap.Len() == len(sg.streams) {
-		sg.pop()
-	}
 	sg.eventHeap.SafePush(&performanceHeapItem{errChan: errChan, event: event})
+	if sg.eventHeap.Len() >= len(sg.streams) {
+		item := sg.eventHeap.SafePop()
+		go sg.sendError(item)
+	}
 
 	sg.mu.Unlock()
 	err := <-errChan
@@ -165,18 +216,26 @@ func (sg *streamGroup) addEvent(id string, event *events.Performance) error {
 	return err
 }
 
-func (sg *streamGroup) pop() {
-	item := sg.eventHeap.SafePop()
+// sendError writes the next item from the heap to the collector and sends the
+// error, if any, to the corresponding error channel.
+func (sg *streamGroup) sendError(item *performanceHeapItem) {
 	if item != nil {
 		item.errChan <- sg.collector.AddEvent(item.event)
 	}
 }
 
+// removeStream removes the given stream from the stream group. If the
+// underlying min heap is full, it will pop the heap and write the item to the
+// collector.
 func (sg *streamGroup) removeStream(id string) {
 	sg.mu.Lock()
 	defer sg.mu.Unlock()
 
 	delete(sg.streams, id)
+	if sg.eventHeap.Len() >= len(sg.streams) {
+		item := sg.eventHeap.SafePop()
+		go sg.sendError(item)
+	}
 }
 
 // PerformanceHeap is a min heap of ftdc/events.Performance objects.
