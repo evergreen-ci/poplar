@@ -105,7 +105,7 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 			return status.Errorf(codes.InvalidArgument, "cannot request different registries in the same stream")
 		}
 
-		if err := group.addEvent(streamID, event.Export()); err != nil {
+		if err := group.addEvent(ctx, streamID, event.Export()); err != nil {
 			return status.Errorf(codes.Internal, "problem persisting argument %s", err.Error())
 		}
 
@@ -192,9 +192,9 @@ func (sc *streamsCoordinator) getStream(name string) (string, *streamGroup, erro
 
 // addEvent writes the given event to the collector from the given stream. If
 // the stream does not exist an error is returned. Note that this function
-// blocks until all streams in the group have called addEvent and the minimum
-// timestamp can be guaranteed.
-func (sg *streamGroup) addEvent(id string, event *events.Performance) error {
+// blocks until all streams in the group have an entry in the heap, at which
+// point the timestamp can be guaranteed.
+func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Performance) error {
 	sg.mu.Lock()
 
 	errChan, ok := sg.streams[id]
@@ -210,9 +210,12 @@ func (sg *streamGroup) addEvent(id string, event *events.Performance) error {
 	}
 
 	sg.mu.Unlock()
-	err := <-errChan
-
-	return err
+	select {
+	case <-ctx.Done():
+		return errors.Wrap(ctx.Err(), "context canceled while adding event")
+	case err := <-errChan:
+		return err
+	}
 }
 
 // sendError writes the next item from the heap to the collector and sends the
