@@ -363,7 +363,7 @@ func TestStreamEvent(t *testing.T) {
 
 		for i := range streams {
 			wg.Add(1)
-			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i) * -time.Minute).Unix()}
+			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+1) * -time.Minute).Unix()}
 			go sendToStream(t, streams[i], event, catcher, &wg, false)
 		}
 		wg.Wait()
@@ -373,7 +373,7 @@ func TestStreamEvent(t *testing.T) {
 		wg.Wait()
 		for i := range streams {
 			wg.Add(1)
-			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i) * -time.Second).Unix()}
+			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+1) * -time.Second).Unix()}
 			go sendToStream(t, streams[i], event, catcher, &wg, true)
 		}
 		wg.Wait()
@@ -385,19 +385,22 @@ func TestStreamEvent(t *testing.T) {
 		require.NoError(t, err)
 		chunkIt := ftdc.ReadChunks(context.TODO(), bytes.NewReader(data))
 		defer chunkIt.Close()
+
+		lastTS := time.Time{}
 		for i := 0; chunkIt.Next(); i++ {
 			chunk := chunkIt.Chunk()
-
-			lastTS := time.Time{}
 			for _, metric := range chunk.Metrics {
 				if metric.Key() == "ts" {
+					require.NotEmpty(t, metric.Values)
+					first := time.Unix(metric.Values[0]/1000, metric.Values[0]%1000*1000000)
+					require.True(t, first.After(lastTS) || first.Equal(lastTS))
+
 					var lastVal int64
 					for _, val := range metric.Values {
 						require.True(t, lastVal <= val)
 						lastVal = val
 					}
 					ts := time.Unix(lastVal/1000, lastVal%1000*1000000)
-					require.True(t, ts.After(lastTS))
 					lastTS = ts
 				}
 			}
