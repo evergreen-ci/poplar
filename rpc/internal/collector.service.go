@@ -196,10 +196,10 @@ func (sc *streamsCoordinator) getStream(name string) (string, *streamGroup, erro
 // timestamp can be guaranteed.
 func (sg *streamGroup) addEvent(id string, event *events.Performance) error {
 	sg.mu.Lock()
-	defer sg.mu.Unlock()
 
 	errChan, ok := sg.streams[id]
 	if !ok {
+		sg.mu.Unlock()
 		return errors.Errorf("stream %s does not exist in this stream group", id)
 	}
 
@@ -211,7 +211,6 @@ func (sg *streamGroup) addEvent(id string, event *events.Performance) error {
 
 	sg.mu.Unlock()
 	err := <-errChan
-	sg.mu.Lock()
 
 	return err
 }
