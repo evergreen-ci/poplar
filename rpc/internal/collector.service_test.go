@@ -23,31 +23,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-func getTestCollectorService(tmpDir string) *collectorService {
-	registry := poplar.NewRegistry()
-	registry.Create("collector", poplar.CreateOptions{
-		Path:      filepath.Join(tmpDir, "exists"),
-		ChunkSize: 5,
-		Recorder:  poplar.RecorderPerf,
-		Dynamic:   true,
-		Events:    poplar.EventsCollectorBasic,
-	})
-	registry.Create("multiple", poplar.CreateOptions{
-		Path:      filepath.Join(tmpDir, "multiple"),
-		ChunkSize: 5,
-		Recorder:  poplar.RecorderPerf,
-		Dynamic:   true,
-		Events:    poplar.EventsCollectorBasic,
-	})
-
-	return &collectorService{
-		registry: registry,
-		coordinator: &streamsCoordinator{
-			groups: map[string]*streamGroup{},
-		},
-	}
-}
-
 func TestCreateCollector(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(".", "create-collector-test")
 	require.NoError(t, err)
@@ -55,6 +30,9 @@ func TestCreateCollector(t *testing.T) {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	svc := getTestCollectorService(tmpDir)
+	defer func() {
+		assert.NoError(t, closeCollectorService(svc))
+	}()
 
 	for _, test := range []struct {
 		name   string
@@ -112,6 +90,9 @@ func TestCloseCollector(t *testing.T) {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	svc := getTestCollectorService(tmpDir)
+	defer func() {
+		assert.NoError(t, closeCollectorService(svc))
+	}()
 
 	for _, test := range []struct {
 		name string
@@ -146,6 +127,9 @@ func TestSendEvent(t *testing.T) {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	svc := getTestCollectorService(tmpDir)
+	defer func() {
+		assert.NoError(t, closeCollectorService(svc))
+	}()
 
 	for _, test := range []struct {
 		name   string
@@ -191,6 +175,9 @@ func TestRegisterStream(t *testing.T) {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	svc := getTestCollectorService(tmpDir)
+	defer func() {
+		assert.NoError(t, closeCollectorService(svc))
+	}()
 
 	for _, test := range []struct {
 		name          string
@@ -241,6 +228,9 @@ func TestStreamEvent(t *testing.T) {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	svc := getTestCollectorService(tmpDir)
+	defer func() {
+		assert.NoError(t, closeCollectorService(svc))
+	}()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	address := fmt.Sprintf("localhost:%d", 7070)
@@ -416,6 +406,39 @@ func sendToStream(t *testing.T, stream PoplarEventCollector_StreamEventsClient, 
 		_, err := stream.CloseAndRecv()
 		catcher.Add(err)
 	}
+}
+
+func getTestCollectorService(tmpDir string) *collectorService {
+	registry := poplar.NewRegistry()
+	registry.Create("collector", poplar.CreateOptions{
+		Path:      filepath.Join(tmpDir, "exists"),
+		ChunkSize: 5,
+		Recorder:  poplar.RecorderPerf,
+		Dynamic:   true,
+		Events:    poplar.EventsCollectorBasic,
+	})
+	registry.Create("multiple", poplar.CreateOptions{
+		Path:      filepath.Join(tmpDir, "multiple"),
+		ChunkSize: 5,
+		Recorder:  poplar.RecorderPerf,
+		Dynamic:   true,
+		Events:    poplar.EventsCollectorBasic,
+	})
+
+	return &collectorService{
+		registry: registry,
+		coordinator: &streamsCoordinator{
+			groups: map[string]*streamGroup{},
+		},
+	}
+}
+
+func closeCollectorService(svc *collectorService) error {
+	catcher := grip.NewBasicCatcher()
+	catcher.Add(svc.registry.Close("collector"))
+	catcher.Add(svc.registry.Close("multiple"))
+
+	return catcher.Resolve()
 }
 
 func startCollectorService(ctx context.Context, svc *collectorService, address string) error {
