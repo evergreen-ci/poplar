@@ -437,6 +437,7 @@ func closeCollectorService(svc *collectorService) error {
 	catcher := grip.NewBasicCatcher()
 	catcher.Add(svc.registry.Close("collector"))
 	catcher.Add(svc.registry.Close("multiple"))
+	catcher.Add(svc.registry.Close("new"))
 
 	return catcher.Resolve()
 }
