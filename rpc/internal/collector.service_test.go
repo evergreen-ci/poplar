@@ -223,7 +223,6 @@ func TestRegisterStream(t *testing.T) {
 			if test.hasErr {
 				assert.Error(t, registerErr)
 				assert.Error(t, getErr)
-
 			} else {
 				assert.NoError(t, registerErr)
 				assert.NotEmpty(t, id)
@@ -367,6 +366,10 @@ func TestStreamEvent(t *testing.T) {
 			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i) * -time.Minute).Unix()}
 			go sendToStream(t, streams[i], event, catcher, &wg, false)
 		}
+		wg.Wait()
+		wg.Add(1)
+		event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(-30 * time.Second).Unix()}
+		go sendToStream(t, streams[0], event, catcher, &wg, false)
 		wg.Wait()
 		for i := range streams {
 			wg.Add(1)
