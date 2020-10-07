@@ -352,7 +352,6 @@ func TestStreamEvent(t *testing.T) {
 				Duration: &duration.Duration{},
 			},
 		}
-
 		streams := make([]PoplarEventCollector_StreamEventsClient, 3)
 		for i := range streams {
 			var err error
@@ -361,15 +360,17 @@ func TestStreamEvent(t *testing.T) {
 			streams[i], err = client.StreamEvents(ctx)
 			require.NoError(t, err)
 
+		}
+
+		for i := range streams {
 			wg.Add(1)
 			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i) * -time.Minute).Unix()}
 			go sendToStream(t, streams[i], event, catcher, &wg, false)
 		}
 		wg.Wait()
-
 		for i := range streams {
-			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i) * -time.Second).Unix()}
 			wg.Add(1)
+			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i) * -time.Second).Unix()}
 			go sendToStream(t, streams[i], event, catcher, &wg, true)
 		}
 		wg.Wait()
@@ -386,8 +387,7 @@ func TestStreamEvent(t *testing.T) {
 
 			lastTS := time.Time{}
 			for _, metric := range chunk.Metrics {
-				switch name := metric.Key(); name {
-				case "ts":
+				if metric.Key() == "ts" {
 					var lastVal int64
 					for _, val := range metric.Values {
 						require.True(t, lastVal <= val)
@@ -396,8 +396,6 @@ func TestStreamEvent(t *testing.T) {
 					ts := time.Unix(lastVal/1000, lastVal%1000*1000000)
 					require.True(t, ts.After(lastTS))
 					lastTS = ts
-				default:
-					continue
 				}
 			}
 		}
