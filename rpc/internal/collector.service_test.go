@@ -344,7 +344,7 @@ func TestStreamEvent(t *testing.T) {
 	t.Run("MultipleStreams", func(t *testing.T) {
 		catcher := grip.NewBasicCatcher()
 		var wg sync.WaitGroup
-		event := &EventMetrics{
+		event := EventMetrics{
 			Name: "multiple",
 			Time: &timestamp.Timestamp{},
 			Timers: &EventMetricsTimers{
@@ -375,7 +375,7 @@ func TestStreamEvent(t *testing.T) {
 		wg.Wait()
 		require.NoError(t, catcher.Resolve())
 
-		collector, ok := svc.registry.GetEventsCollector("collector")
+		collector, ok := svc.registry.GetEventsCollector("multiple")
 		require.True(t, ok)
 		data, err := collector.Resolve()
 		require.NoError(t, err)
@@ -389,7 +389,6 @@ func TestStreamEvent(t *testing.T) {
 				switch name := metric.Key(); name {
 				case "ts":
 					var lastVal int64
-					fmt.Println(len(metric.Values))
 					for _, val := range metric.Values {
 						require.True(t, lastVal <= val)
 						lastVal = val
@@ -405,10 +404,10 @@ func TestStreamEvent(t *testing.T) {
 	})
 }
 
-func sendToStream(t *testing.T, stream PoplarEventCollector_StreamEventsClient, event *EventMetrics, catcher grip.Catcher, wg *sync.WaitGroup, closeStream bool) {
+func sendToStream(t *testing.T, stream PoplarEventCollector_StreamEventsClient, event EventMetrics, catcher grip.Catcher, wg *sync.WaitGroup, closeStream bool) {
 	defer wg.Done()
 
-	catcher.Add(stream.Send(event))
+	catcher.Add(stream.Send(&event))
 	if closeStream {
 		_, err := stream.CloseAndRecv()
 		catcher.Add(err)
