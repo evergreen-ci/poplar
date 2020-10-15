@@ -28,9 +28,9 @@ func getUnmarshaler(fn string) unmarshaler {
 
 // LoadReport reads the content of the specified file and attempts to create a
 // Report structure based on the content. The file can be in bson, json, or
-// yaml, and LoadReport examines the files' extension to determine the data
+// yaml, and LoadReport examines the file's extension to determine the data
 // format. If the bucket API key, secret, or token are not populated, the
-// corresponding environment variables will be used to populated the values.
+// corresponding environment variables will be used to populate the values.
 func LoadReport(fn string) (*Report, error) {
 	out := &Report{}
 	if err := readFile(fn, out); err != nil {
@@ -52,10 +52,10 @@ func LoadReport(fn string) (*Report, error) {
 
 // LoadTests reads the content of the specified file and attempts to create a
 // Report structure based on the content. The file can be in json or yaml and
-// LoadTests examines the files' extension to determine the data format. Note
+// LoadTests examines the file's extension to determine the data format. Note
 // that this expects a subset of the actual Report data, as an array of Test
-// objects, and will return a Report object with empty fields except for the
-// `Tests` field.
+// structures, and will return a Report instance with empty fields except for
+// the `Tests` field.
 func LoadTests(fn string) (*Report, error) {
 	if strings.HasSuffix(fn, ".bson") {
 		return nil, errors.New("cannot load an array of tests from bson")
