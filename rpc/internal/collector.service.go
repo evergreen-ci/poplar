@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"sync"
-	//"fmt"
 
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/utility"
@@ -219,7 +218,6 @@ func (sg *streamGroup) processBuffers() {
 			}
 		}
 
-		// fmt.Println("Actually writing event.")
 		sg.collector.AddEvent(sg.buffers[min][0])
 		sg.buffers[min] = sg.buffers[min][1:]
 	}
