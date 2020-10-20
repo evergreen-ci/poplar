@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"sync"
+    //"fmt"
 
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/utility"
@@ -105,9 +106,8 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 			return status.Errorf(codes.InvalidArgument, "cannot request different registries in the same stream")
 		}
 
-		if err := group.addEvent(ctx, streamID, event.Export()); err != nil {
-			return status.Errorf(codes.Internal, "problem persisting argument %s", err.Error())
-		}
+        group.appendEvent(streamID, event.Export())
+        group.processBuffers()
 
 		if ctx.Err() != nil {
 			return status.Errorf(codes.Canceled, "operation canceled for %s", eventName)
@@ -132,6 +132,7 @@ type streamGroup struct {
 	collector        events.Collector
 	availableStreams []string
 	streams          map[string]chan error
+    buffers          map[string][]*events.Performance 
 	eventHeap        *PerformanceHeap
 	mu               sync.Mutex
 }
@@ -154,6 +155,7 @@ func (sc *streamsCoordinator) addStream(name string, registry *poplar.RecorderRe
 			collector:        collector,
 			availableStreams: []string{},
 			streams:          map[string]chan error{},
+            buffers:          make(map[string][]*events.Performance),
 			eventHeap:        &PerformanceHeap{},
 		}
 		heap.Init(group.eventHeap)
@@ -165,7 +167,8 @@ func (sc *streamsCoordinator) addStream(name string, registry *poplar.RecorderRe
 
 	id := utility.RandomString()
 	group.streams[id] = make(chan error)
-	group.availableStreams = append(group.availableStreams, id)
+	group.buffers[id] = make([]*events.Performance, 0)
+    group.availableStreams = append(group.availableStreams, id)
 
 	return nil
 }
@@ -190,12 +193,45 @@ func (sc *streamsCoordinator) getStream(name string) (string, *streamGroup, erro
 	return id, group, nil
 }
 
+
+func (sg *streamGroup) appendEvent(id string, event *events.Performance) {
+    sg.mu.Lock()
+    defer sg.mu.Unlock()
+
+    sg.buffers[id] = append(sg.buffers[id], event)
+
+}
+
+func (sg *streamGroup) processBuffers() {
+	sg.mu.Lock()
+	defer sg.mu.Unlock()
+
+    // We process until there's a buffer that's not ready to pop.
+    for true {
+
+        var min = ""
+        // Only proceed if each buffer has a processable element.
+        for id, buffer := range sg.buffers {
+            if len(buffer) == 0 {
+                return
+            }
+            if min == "" || buffer[0].Timestamp.Before(sg.buffers[min][0].Timestamp) {
+                min = id
+            }
+        }
+
+        // fmt.Println("Actually writing event.")
+        sg.collector.AddEvent(sg.buffers[min][0])
+        sg.buffers[min] = sg.buffers[min][1:]
+    }
+
+}
+
 // addEvent writes the given event to the collector from the given stream. If
 // the stream does not exist an error is returned. Note that this function
 // blocks until all streams in the group have an entry in the heap, at which
 // point the timestamp can be guaranteed.
 func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Performance) error {
-	sg.mu.Lock()
 
 	errChan, ok := sg.streams[id]
 	if !ok {
@@ -209,7 +245,6 @@ func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Pe
 		go sg.sendError(item)
 	}
 
-	sg.mu.Unlock()
 	select {
 	case <-ctx.Done():
 		return errors.Wrap(ctx.Err(), "context canceled while adding event")
@@ -230,14 +265,12 @@ func (sg *streamGroup) sendError(item *performanceHeapItem) {
 // underlying min heap is full, it will pop the heap and write the item to the
 // collector.
 func (sg *streamGroup) removeStream(id string) {
+    sg.processBuffers()
+    
 	sg.mu.Lock()
 	defer sg.mu.Unlock()
 
 	delete(sg.streams, id)
-	if sg.eventHeap.Len() >= len(sg.streams) {
-		item := sg.eventHeap.SafePop()
-		go sg.sendError(item)
-	}
 }
 
 // PerformanceHeap is a min heap of ftdc/events.Performance objects.
