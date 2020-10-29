@@ -143,7 +143,6 @@ type streamGroup struct {
 type stream struct {
 	inHeap bool
 	closed bool
-	next   *events.Performance
 	buffer chan *events.Performance
 }
 
