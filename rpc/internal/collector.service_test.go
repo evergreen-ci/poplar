@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -331,8 +330,6 @@ func TestStreamEvent(t *testing.T) {
 	}
 
 	t.Run("MultipleStreams", func(t *testing.T) {
-		catcher := grip.NewBasicCatcher()
-		var wg sync.WaitGroup
 		event := EventMetrics{
 			Name: "multiple",
 			Time: &timestamp.Timestamp{},
@@ -352,22 +349,17 @@ func TestStreamEvent(t *testing.T) {
 		}
 
 		for i := range streams {
-			wg.Add(1)
 			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+1) * -time.Minute).Unix()}
-			go sendToStream(t, streams[i], event, catcher, &wg, false)
+			require.NoError(t, streams[i].Send(&event))
 		}
-		wg.Wait()
-		wg.Add(1)
 		event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(-30 * time.Second).Unix()}
-		go sendToStream(t, streams[0], event, catcher, &wg, false)
-		wg.Wait()
+		require.NoError(t, streams[0].Send(&event))
 		for i := range streams {
-			wg.Add(1)
 			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+1) * -time.Second).Unix()}
-			go sendToStream(t, streams[i], event, catcher, &wg, true)
+			require.NoError(t, streams[i].Send(&event))
+			_, err := streams[i].CloseAndRecv()
+			require.NoError(t, err)
 		}
-		wg.Wait()
-		require.NoError(t, catcher.Resolve())
 
 		collector, ok := svc.registry.GetEventsCollector("multiple")
 		require.True(t, ok)
@@ -396,16 +388,6 @@ func TestStreamEvent(t *testing.T) {
 			}
 		}
 	})
-}
-
-func sendToStream(t *testing.T, stream PoplarEventCollector_StreamEventsClient, event EventMetrics, catcher grip.Catcher, wg *sync.WaitGroup, closeStream bool) {
-	defer wg.Done()
-
-	catcher.Add(stream.Send(&event))
-	if closeStream {
-		_, err := stream.CloseAndRecv()
-		catcher.Add(err)
-	}
 }
 
 func getTestCollectorService(tmpDir string) *collectorService {
