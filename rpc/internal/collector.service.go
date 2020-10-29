@@ -205,9 +205,9 @@ func (sc *streamsCoordinator) getStream(name string) (string, *streamGroup, erro
 	return id, group, nil
 }
 
-// addEvent writes the given event to the stream buffer. It also attempts to
-// write an item to the collector from the min heap. If the stream does not
-// exist or is already closed an error is returned.
+// addEvent writes the given event to the stream's buffer. If the time since
+// the last flush has surpassed the flush interval, the flush method is called.
+// If the stream does not exist or is already closed an error is returned.
 func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Performance) error {
 	sg.mu.Lock()
 	defer sg.mu.Unlock()
