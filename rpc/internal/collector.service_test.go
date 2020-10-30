@@ -349,14 +349,23 @@ func TestStreamEvent(t *testing.T) {
 		}
 
 		for i := range streams {
+			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+3) * -time.Minute).Unix()}
+			require.NoError(t, streams[i].Send(&event))
+			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+2) * -time.Minute).Unix()}
+			require.NoError(t, streams[i].Send(&event))
 			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+1) * -time.Minute).Unix()}
 			require.NoError(t, streams[i].Send(&event))
 		}
 		event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(-30 * time.Second).Unix()}
 		require.NoError(t, streams[0].Send(&event))
 		for i := range streams {
+			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+3) * -time.Second).Unix()}
+			require.NoError(t, streams[i].Send(&event))
+			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+2) * -time.Second).Unix()}
+			require.NoError(t, streams[i].Send(&event))
 			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+1) * -time.Second).Unix()}
 			require.NoError(t, streams[i].Send(&event))
+
 			_, err := streams[i].CloseAndRecv()
 			require.NoError(t, err)
 		}
@@ -368,6 +377,7 @@ func TestStreamEvent(t *testing.T) {
 		chunkIt := ftdc.ReadChunks(context.TODO(), bytes.NewReader(data))
 		defer chunkIt.Close()
 
+		count := 0
 		lastTS := time.Time{}
 		for i := 0; chunkIt.Next(); i++ {
 			chunk := chunkIt.Chunk()
@@ -381,12 +391,14 @@ func TestStreamEvent(t *testing.T) {
 					for _, val := range metric.Values {
 						require.True(t, lastVal <= val)
 						lastVal = val
+						count++
 					}
 					ts := time.Unix(lastVal/1000, lastVal%1000*1000000)
 					lastTS = ts
 				}
 			}
 		}
+		assert.Equal(t, 19, count)
 	})
 }
 
