@@ -225,8 +225,12 @@ func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Pe
 	}
 
 	if stream.inHeap {
-		stream.buffer <- event
-		return nil
+		select {
+		case stream.buffer <- event:
+			return nil
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "context canceled while waiting on buffer")
+		}
 	}
 
 	var e *events.Performance
