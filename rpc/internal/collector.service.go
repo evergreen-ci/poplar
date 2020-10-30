@@ -79,6 +79,10 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 	for {
 		event, err := srv.Recv()
 		if err == io.EOF {
+			if err = group.closeStream(streamID); err != nil {
+				return status.Errorf(codes.Internal, "problem persisting argument %s", err.Error())
+			}
+
 			return srv.SendAndClose(&PoplarResponse{
 				Name:   eventName,
 				Status: true,
@@ -89,6 +93,7 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 				Status: false,
 			})
 		}
+
 		if group == nil {
 			if event.Name == "" {
 				return status.Error(codes.InvalidArgument, "registries must be named")
@@ -99,7 +104,6 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 			if err != nil {
 				return status.Error(codes.FailedPrecondition, errors.Wrap(err, "failed to get stream").Error())
 			}
-			defer group.closeStream(streamID)
 		}
 
 		if event.Name != eventName {
@@ -135,7 +139,6 @@ type streamGroup struct {
 	streams          map[string]*stream
 	eventHeap        *PerformanceHeap
 	lastFlush        time.Time
-	catcher          grip.Catcher
 	mu               sync.Mutex
 }
 
@@ -166,7 +169,6 @@ func (sc *streamsCoordinator) addStream(name string, registry *poplar.RecorderRe
 			streams:          map[string]*stream{},
 			eventHeap:        &PerformanceHeap{},
 			lastFlush:        time.Now(),
-			catcher:          grip.NewBasicCatcher(),
 		}
 		heap.Init(group.eventHeap)
 		sc.groups[name] = group
@@ -212,10 +214,6 @@ func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Pe
 	sg.mu.Lock()
 	defer sg.mu.Unlock()
 
-	if sg.catcher.HasErrors() {
-		return sg.catcher.Resolve()
-	}
-
 	stream, ok := sg.streams[id]
 	if !ok {
 		return errors.Errorf("stream '%s' does not exist in this stream group", id)
@@ -236,7 +234,7 @@ func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Pe
 	stream.inHeap = true
 
 	if time.Since(sg.lastFlush) > 5*time.Second { // TODO: figure out a good flush interval
-		return errors.Wrap(sg.flush(), "problem persisting data")
+		return errors.Wrap(sg.flush(), "problem flushing to collector")
 	}
 
 	return nil
@@ -245,20 +243,20 @@ func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Pe
 // closeStream marks the given stream as closed. Once all the items in the
 // stream's buffer have been written to the collector, the stream will be
 // removed from the stream.
-func (sg *streamGroup) closeStream(id string) {
+func (sg *streamGroup) closeStream(id string) error {
 	sg.mu.Lock()
 	defer sg.mu.Unlock()
 
 	stream, ok := sg.streams[id]
 	if !ok {
-		return
+		return nil
 	}
 	stream.closed = true
 	if len(stream.buffer) == 0 {
 		delete(sg.streams, id)
 	}
 
-	sg.catcher.Add(errors.Wrap(sg.flush(), "problem persisting data"))
+	return errors.Wrap(sg.flush(), "problem flushing to collector")
 }
 
 // flush attemps to flush all the streams' buffers to the collector. Each time
