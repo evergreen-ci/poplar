@@ -226,8 +226,8 @@ func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Pe
 		select {
 		case stream.buffer <- event:
 			return nil
-		case <-ctx.Done():
-			return errors.Wrap(ctx.Err(), "context canceled while waiting on buffer")
+		default:
+			return errors.New("event buffer full for this stream")
 		}
 	}
 	sg.eventHeap.SafePush(&performanceHeapItem{id: id, event: event})
