@@ -79,10 +79,11 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 	for {
 		event, err := srv.Recv()
 		if err == io.EOF {
-			if err = group.closeStream(streamID); err != nil {
-				return status.Errorf(codes.Internal, "problem persisting argument %s", err.Error())
+			if group != nil {
+				if err = group.closeStream(streamID); err != nil {
+					return status.Errorf(codes.Internal, "problem persisting argument %s", err.Error())
+				}
 			}
-
 			return srv.SendAndClose(&PoplarResponse{
 				Name:   eventName,
 				Status: true,
