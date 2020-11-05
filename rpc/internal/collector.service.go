@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"sync"
-	"time"
 
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/utility"
@@ -139,7 +138,6 @@ type streamGroup struct {
 	availableStreams []string
 	streams          map[string]*stream
 	eventHeap        *PerformanceHeap
-	lastFlush        time.Time
 	mu               sync.Mutex
 }
 
@@ -169,7 +167,6 @@ func (sc *streamsCoordinator) addStream(name string, registry *poplar.RecorderRe
 			availableStreams: []string{},
 			streams:          map[string]*stream{},
 			eventHeap:        &PerformanceHeap{},
-			lastFlush:        time.Now(),
 		}
 		heap.Init(group.eventHeap)
 		sc.groups[name] = group
@@ -179,7 +176,8 @@ func (sc *streamsCoordinator) addStream(name string, registry *poplar.RecorderRe
 	defer group.mu.Unlock()
 
 	id := utility.RandomString()
-	group.streams[id] = &stream{buffer: make(chan *events.Performance, 1000)} // TODO: figure out good buffer size
+	// A buffer size of 250000 has been determined by downstream tests.
+	group.streams[id] = &stream{buffer: make(chan *events.Performance, 250000)}
 	group.availableStreams = append(group.availableStreams, id)
 
 	return nil
@@ -208,8 +206,7 @@ func (sc *streamsCoordinator) getStream(name string) (string, *streamGroup, erro
 	return id, group, nil
 }
 
-// addEvent writes the given event to the stream's buffer. If the time since
-// the last flush has surpassed the flush interval, the flush method is called.
+// addEvent writes the given event to the stream's buffer and then calls flush.
 // If the stream does not exist or is already closed an error is returned.
 func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Performance) error {
 	sg.mu.Lock()
@@ -234,11 +231,7 @@ func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Pe
 	sg.eventHeap.SafePush(&performanceHeapItem{id: id, event: event})
 	stream.inHeap = true
 
-	if time.Since(sg.lastFlush) > 5*time.Second { // TODO: figure out a good flush interval
-		return errors.Wrap(sg.flush(), "problem flushing to collector")
-	}
-
-	return nil
+	return errors.Wrap(sg.flush(), "problem flushing to collector")
 }
 
 // closeStream marks the given stream as closed. Once all the items in the
@@ -265,10 +258,6 @@ func (sg *streamGroup) closeStream(id string) error {
 // to the min heap. This stops flushing once there are less events in the heap
 // than streams in the group. Note that this function is not thread safe.
 func (sg *streamGroup) flush() error {
-	defer func() {
-		sg.lastFlush = time.Now()
-	}()
-
 	for sg.eventHeap.Len() >= len(sg.streams) {
 		item := sg.eventHeap.SafePop()
 		if item == nil {
