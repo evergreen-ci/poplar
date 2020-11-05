@@ -28,7 +28,7 @@ func TestCreateCollector(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
-	svc := getTestCollectorService(tmpDir)
+	svc := getTestCollectorService(t, tmpDir)
 	defer func() {
 		assert.NoError(t, closeCollectorService(svc))
 	}()
@@ -88,7 +88,7 @@ func TestCloseCollector(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
-	svc := getTestCollectorService(tmpDir)
+	svc := getTestCollectorService(t, tmpDir)
 	defer func() {
 		assert.NoError(t, closeCollectorService(svc))
 	}()
@@ -125,7 +125,7 @@ func TestSendEvent(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
-	svc := getTestCollectorService(tmpDir)
+	svc := getTestCollectorService(t, tmpDir)
 	defer func() {
 		assert.NoError(t, closeCollectorService(svc))
 	}()
@@ -173,7 +173,7 @@ func TestRegisterStream(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
-	svc := getTestCollectorService(tmpDir)
+	svc := getTestCollectorService(t, tmpDir)
 	defer func() {
 		assert.NoError(t, closeCollectorService(svc))
 	}()
@@ -226,7 +226,7 @@ func TestStreamEvent(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
-	svc := getTestCollectorService(tmpDir)
+	svc := getTestCollectorService(t, tmpDir)
 	defer func() {
 		assert.NoError(t, closeCollectorService(svc))
 	}()
@@ -402,22 +402,24 @@ func TestStreamEvent(t *testing.T) {
 	})
 }
 
-func getTestCollectorService(tmpDir string) *collectorService {
+func getTestCollectorService(t *testing.T, tmpDir string) *collectorService {
 	registry := poplar.NewRegistry()
-	registry.Create("collector", poplar.CreateOptions{
+	_, err := registry.Create("collector", poplar.CreateOptions{
 		Path:      filepath.Join(tmpDir, "exists"),
 		ChunkSize: 5,
 		Recorder:  poplar.RecorderPerf,
 		Dynamic:   true,
 		Events:    poplar.EventsCollectorBasic,
 	})
-	registry.Create("multiple", poplar.CreateOptions{
+	require.NoError(t, err)
+	_, err = registry.Create("multiple", poplar.CreateOptions{
 		Path:      filepath.Join(tmpDir, "multiple"),
 		ChunkSize: 5,
 		Recorder:  poplar.RecorderPerf,
 		Dynamic:   true,
 		Events:    poplar.EventsCollectorBasic,
 	})
+	require.NoError(t, err)
 
 	return &collectorService{
 		registry: registry,

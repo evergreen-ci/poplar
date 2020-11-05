@@ -253,7 +253,7 @@ func (sg *streamGroup) closeStream(id string) error {
 	return errors.Wrap(sg.flush(), "problem flushing to collector")
 }
 
-// flush attemps to flush all the streams' buffers to the collector. Each time
+// flush attempts to flush all the streams' buffers to the collector. Each time
 // an event is flushed, the next event from the corresponding stream is added
 // to the min heap. This stops flushing once there are less events in the heap
 // than streams in the group. Note that this function is not thread safe.
@@ -279,7 +279,7 @@ func (sg *streamGroup) flush() error {
 				sg.eventHeap.SafePush(&performanceHeapItem{id: item.id, event: event})
 				stream.inHeap = true
 			default:
-				// Do nothing, buffer emtpy.
+				// Do nothing, buffer empty.
 			}
 
 		}
