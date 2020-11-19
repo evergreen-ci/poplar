@@ -2,7 +2,7 @@ package internal
 
 import (
 	"container/heap"
-    "container/list"
+	"container/list"
 	"context"
 	"io"
 	"sync"
@@ -221,7 +221,7 @@ func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Pe
 	}
 
 	if stream.inHeap {
-        stream.buffer.PushBack(event)
+		stream.buffer.PushBack(event)
 		return nil
 	}
 	sg.eventHeap.SafePush(&performanceHeapItem{id: id, event: event})
@@ -273,8 +273,8 @@ func (sg *streamGroup) flush() error {
 				// it to the min heap.
 				sg.eventHeap.SafePush(&performanceHeapItem{id: item.id, event: event.Value.(*events.Performance)})
 				stream.inHeap = true
-                stream.buffer.Remove(event)
-            }
+				stream.buffer.Remove(event)
+			}
 		}
 
 		if err := sg.collector.AddEvent(item.event); err != nil {
