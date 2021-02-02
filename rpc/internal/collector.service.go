@@ -37,9 +37,8 @@ func (s *collectorService) CloseCollector(ctx context.Context, id *PoplarID) (*P
 	catcher := grip.NewBasicCatcher()
 
 	for _, group := range s.coordinator.groups {
-		for streamID, _ := range group.streams {
+		for streamID := range group.streams {
 			catcher.Add(group.closeStream(streamID))
-
 		}
 	}
 	catcher.Add(s.registry.Close(id.Name))
