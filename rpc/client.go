@@ -34,22 +34,23 @@ func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) 
 	var wg sync.WaitGroup
 	catcher := grip.NewBasicCatcher()
 	testChan := make(chan poplar.Test)
-	go opts.artifactProducer(ctx, testChan, catcher, wg)
+	wg.Add(1)
+	go opts.artifactProducer(ctx, testChan, catcher, &wg)
 
 	workers := 1
 	if !opts.SerializeUpload {
 		workers = runtime.NumCPU()
 	}
 	for i := 0; i < workers; i++ {
-		go opts.artifactConsumer(ctx, testChan, catcher, wg)
+		wg.Add(1)
+		go opts.artifactConsumer(ctx, testChan, catcher, &wg)
 	}
 
 	wg.Wait()
 	return catcher.Resolve()
 }
 
-func (opts *UploadReportOptions) artifactProducer(ctx context.Context, testChan chan poplar.Test, catcher grip.Catcher, wg sync.WaitGroup) {
-	wg.Add(1)
+func (opts *UploadReportOptions) artifactProducer(ctx context.Context, testChan chan poplar.Test, catcher grip.Catcher, wg *sync.WaitGroup) {
 	defer func() {
 		catcher.Add(recovery.HandlePanicWithError(recover(), nil, "artifact upload producer"))
 		close(testChan)
@@ -75,8 +76,7 @@ func (opts *UploadReportOptions) artifactProducer(ctx context.Context, testChan 
 	}
 }
 
-func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan chan poplar.Test, catcher grip.Catcher, wg sync.WaitGroup) {
-	wg.Add(1)
+func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan chan poplar.Test, catcher grip.Catcher, wg *sync.WaitGroup) {
 	defer func() {
 		catcher.Add(recovery.HandlePanicWithError(recover(), nil, "artifact upload consumer"))
 		wg.Done()
