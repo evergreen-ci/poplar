@@ -3,15 +3,14 @@ package rpc
 import (
 	"context"
 	"runtime"
-	"time"
+	"sync"
 
 	"github.com/evergreen-ci/juniper/gopb"
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
-	"github.com/mongodb/amboy"
-	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
@@ -25,72 +24,93 @@ type UploadReportOptions struct {
 
 func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
-		return errors.Wrap(err, "problem uploading tests for report")
+		return errors.Wrap(err, "uploading tests for report")
 	}
 	return errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun),
-		"problem uploading tests for report")
+		"uploading tests for report")
 }
 
 func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) error {
-	jobQueue := queue.NewLocalLimitedSize(runtime.NumCPU(), len(opts.Report.Tests)*2)
-	if !opts.SerializeUpload {
-		if err := jobQueue.Start(ctx); err != nil {
-			return errors.Wrap(err, "problem starting artifact upload queue")
-		}
-		defer jobQueue.Runner().Close(ctx)
-	}
-
-	queue := make([]poplar.Test, len(opts.Report.Tests))
-	for i, test := range opts.Report.Tests {
-		queue[i] = test
-	}
-
-	for len(queue) != 0 {
-		test := queue[0]
-		queue = queue[1:]
-
-		for _, subtest := range test.SubTests {
-			queue = append(queue, subtest)
-		}
-
-		for i := range test.Artifacts {
-			var err error
-
-			if err = test.Artifacts[i].Convert(ctx); err != nil {
-				return errors.Wrap(err, "problem converting artifact")
-			}
-
-			err = test.Artifacts[i].SetBucketInfo(opts.Report.BucketConf)
-			if err != nil {
-				return errors.Wrap(err, "problem setting bucket info")
-			}
-
-			job := NewUploadJob(test.Artifacts[i], opts.Report.BucketConf, opts.DryRun)
-			if opts.SerializeUpload {
-				job.Run(ctx)
-				if err = job.Error(); err != nil {
-					return errors.Wrap(err, "problem converting and uploading artifacts")
-				}
-			} else if err = jobQueue.Put(ctx, job); err != nil {
-				return errors.Wrap(err, "problem adding artifact job to upload queue")
-			}
-		}
-	}
-
-	if opts.SerializeUpload {
-		return nil
-	}
-
-	if !amboy.WaitInterval(ctx, jobQueue, 10*time.Millisecond) {
-		return errors.New("context canceled while waiting for artifact jobs to complete")
-	}
-
+	var wg sync.WaitGroup
 	catcher := grip.NewBasicCatcher()
-	for job := range jobQueue.Results(ctx) {
-		catcher.Add(job.Error())
+	testChan := make(chan poplar.Test)
+	go opts.artifactUploaderProducer(ctx, testChan, catcher, wg)
+
+	workers := 1
+	if !opts.SerializeUpload {
+		workers = runtime.NumCPU()
+	}
+	for i := 0; i < workers; i++ {
+		go opts.artifactUploaderConsumer(ctx, testChan, catcher, wg)
 	}
 
-	return errors.Wrap(catcher.Resolve(), "problem uploading artifacts")
+	wg.Wait()
+	return catcher.Resolve()
+}
+
+func (opts *UploadReportOptions) artifactUploaderProducer(ctx context.Context, testChan chan poplar.Test, catcher grip.Catcher, wg sync.WaitGroup) {
+	wg.Add(1)
+	defer func() {
+		catcher.Add(recovery.HandlePanicWithError(recover(), nil, "artifact upload producer"))
+		close(testChan)
+		wg.Done()
+	}()
+
+	testQueue := make([]poplar.Test, len(opts.Report.Tests))
+	for i, test := range opts.Report.Tests {
+		testQueue[i] = test
+	}
+	for len(testQueue) != 0 {
+		test := testQueue[0]
+		testQueue = testQueue[1:]
+		select {
+		case testChan <- test:
+		case <-ctx.Done():
+			return
+		}
+
+		for _, subTest := range test.SubTests {
+			testQueue = append(testQueue, subTest)
+		}
+	}
+}
+
+func (opts *UploadReportOptions) artifactUploaderConsumer(ctx context.Context, testChan chan poplar.Test, catcher grip.Catcher, wg sync.WaitGroup) {
+	wg.Add(1)
+	go func() {
+		defer func() {
+			catcher.Add(recovery.HandlePanicWithError(recover(), nil, "artifact upload consumer"))
+			wg.Done()
+		}()
+
+		for test := range testChan {
+			for j := range test.Artifacts {
+				if err := ctx.Err(); err != nil {
+					catcher.Add(err)
+					return
+				}
+
+				if err := test.Artifacts[j].Convert(ctx); err != nil {
+					catcher.Wrap(err, "converting artifact")
+					continue
+				}
+
+				if err := test.Artifacts[j].SetBucketInfo(opts.Report.BucketConf); err != nil {
+					catcher.Wrap(err, "setting bucket info")
+					continue
+				}
+
+				grip.Info(message.Fields{
+					"op":     "uploading artifact",
+					"path":   test.Artifacts[j].Path,
+					"bucket": test.Artifacts[j].Bucket,
+					"prefix": test.Artifacts[j].Prefix,
+					"file":   test.Artifacts[j].LocalFile,
+				})
+				catcher.Wrapf(test.Artifacts[j].Upload(ctx, opts.Report.BucketConf, opts.DryRun), "uploading artifact")
+			}
+		}
+	}()
 }
 
 func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient, report *poplar.Report, tests []poplar.Test, dryRun bool) error {
