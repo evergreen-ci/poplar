@@ -77,40 +77,38 @@ func (opts *UploadReportOptions) artifactUploaderProducer(ctx context.Context, t
 
 func (opts *UploadReportOptions) artifactUploaderConsumer(ctx context.Context, testChan chan poplar.Test, catcher grip.Catcher, wg sync.WaitGroup) {
 	wg.Add(1)
-	go func() {
-		defer func() {
-			catcher.Add(recovery.HandlePanicWithError(recover(), nil, "artifact upload consumer"))
-			wg.Done()
-		}()
-
-		for test := range testChan {
-			for j := range test.Artifacts {
-				if err := ctx.Err(); err != nil {
-					catcher.Add(err)
-					return
-				}
-
-				if err := test.Artifacts[j].Convert(ctx); err != nil {
-					catcher.Wrap(err, "converting artifact")
-					continue
-				}
-
-				if err := test.Artifacts[j].SetBucketInfo(opts.Report.BucketConf); err != nil {
-					catcher.Wrap(err, "setting bucket info")
-					continue
-				}
-
-				grip.Info(message.Fields{
-					"op":     "uploading artifact",
-					"path":   test.Artifacts[j].Path,
-					"bucket": test.Artifacts[j].Bucket,
-					"prefix": test.Artifacts[j].Prefix,
-					"file":   test.Artifacts[j].LocalFile,
-				})
-				catcher.Wrapf(test.Artifacts[j].Upload(ctx, opts.Report.BucketConf, opts.DryRun), "uploading artifact")
-			}
-		}
+	defer func() {
+		catcher.Add(recovery.HandlePanicWithError(recover(), nil, "artifact upload consumer"))
+		wg.Done()
 	}()
+
+	for test := range testChan {
+		for j := range test.Artifacts {
+			if err := ctx.Err(); err != nil {
+				catcher.Add(err)
+				return
+			}
+
+			if err := test.Artifacts[j].Convert(ctx); err != nil {
+				catcher.Wrap(err, "converting artifact")
+				continue
+			}
+
+			if err := test.Artifacts[j].SetBucketInfo(opts.Report.BucketConf); err != nil {
+				catcher.Wrap(err, "setting bucket info")
+				continue
+			}
+
+			grip.Info(message.Fields{
+				"op":     "uploading artifact",
+				"path":   test.Artifacts[j].Path,
+				"bucket": test.Artifacts[j].Bucket,
+				"prefix": test.Artifacts[j].Prefix,
+				"file":   test.Artifacts[j].LocalFile,
+			})
+			catcher.Wrapf(test.Artifacts[j].Upload(ctx, opts.Report.BucketConf, opts.DryRun), "uploading artifact")
+		}
+	}
 }
 
 func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient, report *poplar.Report, tests []poplar.Test, dryRun bool) error {
