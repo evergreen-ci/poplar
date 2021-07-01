@@ -31,12 +31,11 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 }
 
 func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) error {
-	var wg sync.WaitGroup
 	catcher := grip.NewBasicCatcher()
-	testChan := make(chan poplar.Test)
-	wg.Add(1)
-	go opts.artifactProducer(ctx, testChan, catcher, &wg)
+	testChan := make(chan poplar.Test, len(opts.Report.Tests)*2)
+	go opts.artifactProducer(ctx, testChan, catcher)
 
+	var wg sync.WaitGroup
 	workers := 1
 	if !opts.SerializeUpload {
 		workers = runtime.NumCPU()
@@ -50,11 +49,10 @@ func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) 
 	return catcher.Resolve()
 }
 
-func (opts *UploadReportOptions) artifactProducer(ctx context.Context, testChan chan poplar.Test, catcher grip.Catcher, wg *sync.WaitGroup) {
+func (opts *UploadReportOptions) artifactProducer(ctx context.Context, testChan chan poplar.Test, catcher grip.Catcher) {
 	defer func() {
 		catcher.Add(recovery.HandlePanicWithError(recover(), nil, "artifact upload producer"))
 		close(testChan)
-		wg.Done()
 	}()
 
 	testQueue := make([]poplar.Test, len(opts.Report.Tests))
