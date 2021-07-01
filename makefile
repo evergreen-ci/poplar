@@ -139,6 +139,7 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/amboy/vendor/gopkg.in/yaml.v2/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/go.mongodb.org/mongo-driver/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/google.golang.org/grpc/
+	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/google.golang.org/genproto/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/mongodb/grip/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/pkg/errors/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/stretchr/testify/
