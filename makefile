@@ -78,7 +78,7 @@ benchmark:
 coverage: $(coverageOutput)
 coverage-html: $(coverageHtmlOutput)
 lint: $(lintOutput)
-# kim: TODO: figure out what to do with vendored protos.
+# TODO (EVG-15699): figure out how to make this tooling work without using a vendor directory.
 proto:
 	@mkdir -p rpc/internal
 	protoc --go_out=plugins=grpc:rpc/internal *.proto
