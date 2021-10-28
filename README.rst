@@ -27,10 +27,9 @@ Some popular functionality is included in the `curator
 Development
 -----------
 
-Currently poplar vendors all of its dependencies, as a result of an upstream
-requirement to build on go1.9; however, eventually the project will move to use
-modules. For the time being, have a ``GOPATH`` set, and ensure that you check
-out the repository into ``$GOPATH/src/github/evergreen-ci/poplar``.
+Poplar uses Go modules. To download the modules ::
+
+    make mod-tidy
 
 All project automation is managed by a makefile, with all output captured in the
 `build` directory. Consider the following operations: ::
@@ -50,9 +49,8 @@ iterative development workflows: ::
   RUN_COUNT=<num>       # run a test more than once to isolate an intermittent failure
   RACE_DETECTOR=true    # run specified tests with the race detector enabled. 
 
-
 Documentation
 -------------
 
-See the `godoc <https://godoc.org/github.com/evergreen-ci/poplar/>`_
+See the `API docs <https://godoc.org/github.com/evergreen-ci/poplar/>`_
 for complete documentation.
