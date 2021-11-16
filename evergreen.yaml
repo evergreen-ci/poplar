@@ -38,7 +38,7 @@ functions:
       working_dir: poplar
       binary: make
       args: ["${target}"]
-      include_expansions_in_env: ["DISABLE_COVERAGE", "GOROOT", "RACE_DETECTOR"]
+      include_expansions_in_env: ["GOROOT", "RACE_DETECTOR"]
       env:
         AWS_ACCESS_KEY_ID: ${aws_key}
         AWS_SECRET_ACCESS_KEY: ${aws_secret}
@@ -120,7 +120,6 @@ buildvariants:
   - name: race-detector
     display_name: Race Detector (Arch Linux)
     expansions:
-      DISABLE_COVERAGE: true
       GOROOT: /opt/golang/go1.16
       RACE_DETECTOR: true
     run_on:
@@ -132,7 +131,6 @@ buildvariants:
   - name: lint
     display_name: Lint (Arch Linux)
     expansions:
-      DISABLE_COVERAGE: true
       GOROOT: /opt/golang/go1.16
     run_on:
       - archlinux-new-small
@@ -143,7 +141,6 @@ buildvariants:
   - name: ubuntu
     display_name: Ubuntu 18.04
     expansions:
-      DISABLE_COVERAGE: true
       GOROOT: /opt/golang/go1.16
     run_on:
       - ubuntu1804-small
@@ -154,7 +151,6 @@ buildvariants:
   - name: macos
     display_name: macOS 10.14
     expansions:
-      DISABLE_COVERAGE: true
       GOROOT: /opt/golang/go1.16
     run_on:
       - macos-1014
@@ -170,6 +166,5 @@ buildvariants:
       - windows-64-vs2017-large
     expansions:
       GOROOT: C:/golang/go1.16
-      DISABLE_COVERAGE: true
     tasks:
       - name: ".test"
