@@ -99,7 +99,7 @@ tasks:
         vars: { target: "${task_name}" }
 
   - <<: *run-build
-    name: coverage-html
+    name: html-coverage
     tags: ["report"]
 
   - <<: *run-build

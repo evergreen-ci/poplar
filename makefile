@@ -62,10 +62,10 @@ $(buildDir)/run-linter:cmd/run-linter/run-linter.go $(buildDir)/golangci-lint
 
 # start output files
 coverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage)
-coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
+htmlCoverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
 lintOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).lint)
 testOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).test)
-.PRECIOUS:$(coverageOutput) $(coverageHtmlOutput) $(lintOutput) $(testOutput)
+.PRECIOUS:$(coverageOutput) $(htmlCoverageOutput) $(lintOutput) $(testOutput)
 # end output files
 
 # start basic development operations
@@ -76,7 +76,7 @@ benchPattern := ./
 benchmark:
 	$(gobin) test $(testArgs) -bench=$(benchPattern) $(if $(RUN_TEST),, -run=^^$$) | tee $(buildDir)/bench.out
 coverage: $(coverageOutput)
-coverage-html: $(coverageHtmlOutput)
+html-coverage: $(htmlCoverageOutput)
 lint: $(lintOutput)
 # TODO (EVG-15699): figure out how to make this tooling work without using a vendor directory.
 proto:
@@ -85,7 +85,7 @@ proto:
 	protoc --go_out=plugins=grpc:rpc/internal vendor/cedar.proto
 	protoc --go_out=plugins=grpc:collector *.proto
 	mv rpc/internal/vendor/cedar.pb.go rpc/internal/cedar.pb.go
-phony += compile lint test coverage coverage-html proto
+phony += compile lint test coverage html-coverage proto
 
 # start convenience targets for running tests and coverage tasks on a
 # specific package.
