@@ -349,7 +349,7 @@ func TestStreamEvent(t *testing.T) {
 				Duration: &duration.Duration{},
 			},
 		}
-		streams := make([]PoplarEventCollector_StreamEventsClient, 3)
+		streams := make([]PoplarEventCollector_StreamEventsClient, 4)
 		for i := range streams {
 			var err error
 			_, err = client.RegisterStream(ctx, &CollectorName{Name: "multiple"})
@@ -358,6 +358,15 @@ func TestStreamEvent(t *testing.T) {
 			require.NoError(t, err)
 
 		}
+
+		// Add one event to the first stream and close it. This will
+		// check that streams closed early are not flushed until all
+		// other streams have recieved at least one item.
+		event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(24 * time.Hour).Unix()}
+		require.NoError(t, streams[0].Send(&event))
+		_, err := streams[0].CloseAndRecv()
+		require.NoError(t, err)
+		streams = streams[1:]
 
 		for i := range streams {
 			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+3) * -time.Minute).Unix()}
@@ -389,14 +398,17 @@ func TestStreamEvent(t *testing.T) {
 		defer chunkIt.Close()
 
 		count := 0
-		lastTS := time.Time{}
+		var lastTS int64
 		for i := 0; chunkIt.Next(); i++ {
 			chunk := chunkIt.Chunk()
 			for _, metric := range chunk.Metrics {
 				if metric.Key() == "ts" {
 					require.NotEmpty(t, metric.Values)
-					first := time.Unix(metric.Values[0]/1000, metric.Values[0]%1000*1000000)
-					require.True(t, first.After(lastTS) || first.Equal(lastTS))
+					firstTS := metric.Values[0]
+					// The first TS of this chunk should be
+					// greater than or equal to the last
+					// TS of the previous chunk.
+					require.True(t, firstTS > lastTS || firstTS == lastTS)
 
 					var lastVal int64
 					for _, val := range metric.Values {
@@ -404,12 +416,11 @@ func TestStreamEvent(t *testing.T) {
 						lastVal = val
 						count++
 					}
-					ts := time.Unix(lastVal/1000, lastVal%1000*1000000)
-					lastTS = ts
+					lastTS = lastVal
 				}
 			}
 		}
-		assert.Equal(t, 19, count)
+		assert.Equal(t, 20, count)
 	})
 }
 
