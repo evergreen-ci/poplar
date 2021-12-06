@@ -249,7 +249,7 @@ func (sg *streamGroup) closeStream(id string) error {
 		return nil
 	}
 	stream.closed = true
-	if stream.buffer.Len() == 0 {
+	if !stream.inHeap {
 		delete(sg.streams, id)
 	}
 
