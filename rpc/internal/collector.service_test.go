@@ -361,7 +361,7 @@ func TestStreamEvent(t *testing.T) {
 
 		// Add one event to the first stream and close it. This will
 		// check that streams closed early are not flushed until all
-		// other streams have recieved at least one item.
+		// other streams have received at least one item.
 		event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(24 * time.Hour).Unix()}
 		require.NoError(t, streams[0].Send(&event))
 		_, err := streams[0].CloseAndRecv()
