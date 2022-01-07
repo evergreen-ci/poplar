@@ -145,7 +145,7 @@ func TestValidate(t *testing.T) {
 
 func exhaustContradictions(numOpts int) [][]bool {
 	if numOpts == 1 {
-		return [][]bool{[]bool{true}, []bool{false}}
+		return [][]bool{{true}, {false}}
 	}
 
 	i := 0

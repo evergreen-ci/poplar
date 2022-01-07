@@ -92,7 +92,7 @@ func TestCloseCollector(t *testing.T) {
 	svc := getTestCollectorService(t, tmpDir)
 	svc.coordinator.groups["group"] = &streamGroup{
 		streams: map[string]*stream{
-			"id1": &stream{
+			"id1": {
 				buffer: &list.List{},
 			},
 		},
