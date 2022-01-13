@@ -1,5 +1,6 @@
 name := poplar
 buildDir := build
+pbDir := rpc/internal
 packages := $(name) rpc rpc-internal
 projectPath := github.com/evergreen-ci/$(name)
 
@@ -78,13 +79,23 @@ benchmark:
 coverage: $(coverageOutput)
 html-coverage: $(htmlCoverageOutput)
 lint: $(lintOutput)
-# TODO (EVG-15699): figure out how to make this tooling work without using a vendor directory.
-proto:
-	@mkdir -p rpc/internal
-	protoc --go_out=plugins=grpc:rpc/internal *.proto
-	protoc --go_out=plugins=grpc:rpc/internal vendor/cedar.proto
-	protoc --go_out=plugins=grpc:collector *.proto
-	mv rpc/internal/vendor/cedar.pb.go rpc/internal/cedar.pb.go
+
+protocVersion := 3.6.1
+protocGenGoVersion := 1.3.2
+protoOS := $(shell uname -s | tr A-Z a-z)
+ifeq ($(protoOS),darwin)
+protoOS := osx
+endif
+protoOS := $(protoOS)-$(shell uname -m | tr A-Z a-z)
+$(buildDir)/protoc:
+	curl --retry 10 --retry-max-time 60 -L0 https://github.com/protocolbuffers/protobuf/releases/download/v$(protocVersion)/protoc-$(protocVersion)-$(protoOS).zip --output protoc.zip
+	unzip -q protoc.zip -d $(buildDir)/protoc
+	rm -f protoc.zip
+	GOBIN="$(abspath $(buildDir))" $(gobin) install github.com/golang/protobuf/protoc-gen-go@v$(protocGenGoVersion)
+proto: $(buildDir)/protoc
+	mkdir -p $(pbDir)
+	PATH="$(abspath $(buildDir)):$(PATH)" $(buildDir)/protoc/bin/protoc --go_out=plugins=grpc:$(pbDir) *.proto
+
 phony += compile lint test coverage html-coverage proto
 
 # start convenience targets for running tests and coverage tasks on a
@@ -143,10 +154,12 @@ phony += mod-tidy verify-mod-tidy
 # end module management targets
 
 # start cleanup targets
-clean:
+clean: clean-proto
 	rm -rf $(buildDir)
 clean-results:
 	rm -rf $(buildDir)/output.*
+clean-proto:
+	rm -rf $(pbDir)/*.pb.go $(buildDir)/protoc $(buildDir)/protoc-gen-go
 phony += clean clean-results
 # end cleanup targets
 
