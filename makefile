@@ -160,7 +160,7 @@ clean-results:
 	rm -rf $(buildDir)/output.*
 clean-proto:
 	rm -rf $(buildDir)/protoc $(buildDir)/protoc-gen-go
-phony += clean clean-results
+phony += clean clean-results clean-proto
 # end cleanup targets
 
 # configure phony targets
