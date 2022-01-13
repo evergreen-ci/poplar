@@ -154,12 +154,12 @@ phony += mod-tidy verify-mod-tidy
 # end module management targets
 
 # start cleanup targets
-clean: clean-proto
+clean:
 	rm -rf $(buildDir)
 clean-results:
 	rm -rf $(buildDir)/output.*
 clean-proto:
-	rm -rf $(pbDir)/*.pb.go $(buildDir)/protoc $(buildDir)/protoc-gen-go
+	rm -rf $(buildDir)/protoc $(buildDir)/protoc-gen-go
 phony += clean clean-results
 # end cleanup targets
 
