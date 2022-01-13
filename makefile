@@ -95,7 +95,6 @@ $(buildDir)/protoc:
 proto: $(buildDir)/protoc
 	mkdir -p $(pbDir)
 	PATH="$(abspath $(buildDir)):$(PATH)" $(buildDir)/protoc/bin/protoc --go_out=plugins=grpc:$(pbDir) *.proto
-
 phony += compile lint test coverage html-coverage proto
 
 # start convenience targets for running tests and coverage tasks on a
