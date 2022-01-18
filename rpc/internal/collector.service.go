@@ -20,6 +20,10 @@ import (
 type collectorService struct {
 	registry    *poplar.RecorderRegistry
 	coordinator *streamsCoordinator
+
+	// UnimplementedPoplarEventCollectorServer must be embedded for forward
+	// compatibility. See collector_grpc.pb.go for more information.
+	UnimplementedPoplarEventCollectorServer
 }
 
 func (s *collectorService) CreateCollector(ctx context.Context, opts *CreateOptions) (*PoplarResponse, error) {

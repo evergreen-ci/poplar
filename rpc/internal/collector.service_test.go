@@ -73,11 +73,14 @@ func TestCreateCollector(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resp, err := svc.CreateCollector(context.TODO(), test.opts)
-			assert.Equal(t, test.resp, resp)
 			if test.hasErr {
 				assert.Error(t, err)
+				assert.Nil(t, resp)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.resp.Name, resp.Name)
+				assert.Equal(t, test.resp.Status, resp.Status)
 			}
 		})
 	}
@@ -120,7 +123,8 @@ func TestCloseCollector(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resp, err := svc.CloseCollector(context.TODO(), test.id)
-			assert.Equal(t, test.resp, resp)
+			assert.Equal(t, test.resp.Name, resp.Name)
+			assert.Equal(t, test.resp.Status, resp.Status)
 			assert.NoError(t, err)
 			_, ok := svc.registry.GetCollector(test.id.Name)
 			assert.False(t, ok)
@@ -168,11 +172,15 @@ func TestSendEvent(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resp, err := svc.SendEvent(context.TODO(), test.event)
-			assert.Equal(t, test.resp, resp)
 			if test.hasErr {
 				assert.Error(t, err)
+				assert.Nil(t, resp)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.resp.Name, resp.Name)
+				assert.Equal(t, test.resp.Status, resp.Status)
 			}
 		})
 	}
@@ -215,18 +223,21 @@ func TestRegisterStream(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resp, registerErr := svc.RegisterStream(context.TODO(), test.collectorName)
-			assert.Equal(t, test.resp, resp)
 			id, group, getErr := svc.coordinator.getStream(test.collectorName.Name)
 			if test.hasErr {
 				assert.Error(t, registerErr)
 				assert.Error(t, getErr)
+				assert.Nil(t, resp)
 			} else {
-				assert.NoError(t, registerErr)
+				require.NoError(t, registerErr)
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.resp.Name, resp.Name)
+				assert.Equal(t, test.resp.Status, resp.Status)
 				assert.NotEmpty(t, id)
 				assert.NotNil(t, group)
 				assert.NoError(t, getErr)
 			}
-
 		})
 	}
 }
@@ -330,16 +341,19 @@ func TestStreamEvent(t *testing.T) {
 			}
 			resp, err := stream.CloseAndRecv()
 			catcher.Add(err)
-			assert.Equal(t, test.resp, resp)
 
 			if test.hasErr {
 				assert.Error(t, catcher.Resolve())
+				assert.Nil(t, resp)
 			} else {
-				assert.NoError(t, catcher.Resolve())
+				require.NoError(t, catcher.Resolve())
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.resp.Name, resp.Name)
+				assert.Equal(t, test.resp.Status, resp.Status)
 			}
 		})
 	}
-
 	t.Run("MultipleStreams", func(t *testing.T) {
 		event := EventMetrics{
 			Name: "multiple",

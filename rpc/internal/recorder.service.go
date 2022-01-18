@@ -10,6 +10,10 @@ import (
 
 type recorderService struct {
 	registry *poplar.RecorderRegistry
+
+	// UnimplementedPoplarMetricsRecorderServer must be embedded for
+	// forward compatibility. See recorder_grpc.pb.go for more information.
+	UnimplementedPoplarMetricsRecorderServer
 }
 
 func (s *recorderService) CreateRecorder(ctx context.Context, info *CreateOptions) (*PoplarResponse, error) {
