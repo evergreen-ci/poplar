@@ -13,14 +13,14 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/poplar"
-	duration "github.com/golang/protobuf/ptypes/duration"
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/ftdc"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestCreateCollector(t *testing.T) {
@@ -73,11 +73,14 @@ func TestCreateCollector(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resp, err := svc.CreateCollector(context.TODO(), test.opts)
-			assert.Equal(t, test.resp, resp)
 			if test.hasErr {
 				assert.Error(t, err)
+				assert.Nil(t, resp)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.resp.Name, resp.Name)
+				assert.Equal(t, test.resp.Status, resp.Status)
 			}
 		})
 	}
@@ -120,7 +123,8 @@ func TestCloseCollector(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resp, err := svc.CloseCollector(context.TODO(), test.id)
-			assert.Equal(t, test.resp, resp)
+			assert.Equal(t, test.resp.Name, resp.Name)
+			assert.Equal(t, test.resp.Status, resp.Status)
 			assert.NoError(t, err)
 			_, ok := svc.registry.GetCollector(test.id.Name)
 			assert.False(t, ok)
@@ -157,10 +161,10 @@ func TestSendEvent(t *testing.T) {
 			name: "AddEvent",
 			event: &EventMetrics{
 				Name: "collector",
-				Time: &timestamp.Timestamp{},
+				Time: &timestamppb.Timestamp{},
 				Timers: &EventMetricsTimers{
-					Total:    &duration.Duration{},
-					Duration: &duration.Duration{},
+					Total:    &durationpb.Duration{},
+					Duration: &durationpb.Duration{},
 				},
 			},
 			resp: &PoplarResponse{Name: "collector", Status: true},
@@ -168,11 +172,15 @@ func TestSendEvent(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resp, err := svc.SendEvent(context.TODO(), test.event)
-			assert.Equal(t, test.resp, resp)
 			if test.hasErr {
 				assert.Error(t, err)
+				assert.Nil(t, resp)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.resp.Name, resp.Name)
+				assert.Equal(t, test.resp.Status, resp.Status)
 			}
 		})
 	}
@@ -215,18 +223,21 @@ func TestRegisterStream(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resp, registerErr := svc.RegisterStream(context.TODO(), test.collectorName)
-			assert.Equal(t, test.resp, resp)
 			id, group, getErr := svc.coordinator.getStream(test.collectorName.Name)
 			if test.hasErr {
 				assert.Error(t, registerErr)
 				assert.Error(t, getErr)
+				assert.Nil(t, resp)
 			} else {
-				assert.NoError(t, registerErr)
+				require.NoError(t, registerErr)
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.resp.Name, resp.Name)
+				assert.Equal(t, test.resp.Status, resp.Status)
 				assert.NotEmpty(t, id)
 				assert.NotNil(t, group)
 				assert.NoError(t, getErr)
 			}
-
 		})
 	}
 }
@@ -272,18 +283,18 @@ func TestStreamEvent(t *testing.T) {
 			events: []*EventMetrics{
 				{
 					Name: "collector",
-					Time: &timestamp.Timestamp{},
+					Time: &timestamppb.Timestamp{},
 					Timers: &EventMetricsTimers{
-						Total:    &duration.Duration{},
-						Duration: &duration.Duration{},
+						Total:    &durationpb.Duration{},
+						Duration: &durationpb.Duration{},
 					},
 				},
 				{
 					Name: "anotherName",
-					Time: &timestamp.Timestamp{},
+					Time: &timestamppb.Timestamp{},
 					Timers: &EventMetricsTimers{
-						Total:    &duration.Duration{},
-						Duration: &duration.Duration{},
+						Total:    &durationpb.Duration{},
+						Duration: &durationpb.Duration{},
 					},
 				},
 			},
@@ -296,18 +307,18 @@ func TestStreamEvent(t *testing.T) {
 			events: []*EventMetrics{
 				{
 					Name: "collector",
-					Time: &timestamp.Timestamp{},
+					Time: &timestamppb.Timestamp{},
 					Timers: &EventMetricsTimers{
-						Total:    &duration.Duration{},
-						Duration: &duration.Duration{},
+						Total:    &durationpb.Duration{},
+						Duration: &durationpb.Duration{},
 					},
 				},
 				{
 					Name: "collector",
-					Time: &timestamp.Timestamp{},
+					Time: &timestamppb.Timestamp{},
 					Timers: &EventMetricsTimers{
-						Total:    &duration.Duration{},
-						Duration: &duration.Duration{},
+						Total:    &durationpb.Duration{},
+						Duration: &durationpb.Duration{},
 					},
 				},
 			},
@@ -330,23 +341,26 @@ func TestStreamEvent(t *testing.T) {
 			}
 			resp, err := stream.CloseAndRecv()
 			catcher.Add(err)
-			assert.Equal(t, test.resp, resp)
 
 			if test.hasErr {
 				assert.Error(t, catcher.Resolve())
+				assert.Nil(t, resp)
 			} else {
-				assert.NoError(t, catcher.Resolve())
+				require.NoError(t, catcher.Resolve())
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.resp.Name, resp.Name)
+				assert.Equal(t, test.resp.Status, resp.Status)
 			}
 		})
 	}
-
 	t.Run("MultipleStreams", func(t *testing.T) {
 		event := EventMetrics{
 			Name: "multiple",
-			Time: &timestamp.Timestamp{},
+			Time: &timestamppb.Timestamp{},
 			Timers: &EventMetricsTimers{
-				Total:    &duration.Duration{},
-				Duration: &duration.Duration{},
+				Total:    &durationpb.Duration{},
+				Duration: &durationpb.Duration{},
 			},
 		}
 		streams := make([]PoplarEventCollector_StreamEventsClient, 4)
@@ -362,28 +376,28 @@ func TestStreamEvent(t *testing.T) {
 		// Add one event to the first stream and close it. This will
 		// check that streams closed early are not flushed until all
 		// other streams have received at least one item.
-		event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(24 * time.Hour).Unix()}
+		event.Time = &timestamppb.Timestamp{Seconds: time.Now().Add(24 * time.Hour).Unix()}
 		require.NoError(t, streams[0].Send(&event))
 		_, err := streams[0].CloseAndRecv()
 		require.NoError(t, err)
 		streams = streams[1:]
 
 		for i := range streams {
-			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+3) * -time.Minute).Unix()}
+			event.Time = &timestamppb.Timestamp{Seconds: time.Now().Add(time.Duration(i+3) * -time.Minute).Unix()}
 			require.NoError(t, streams[i].Send(&event))
-			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+2) * -time.Minute).Unix()}
+			event.Time = &timestamppb.Timestamp{Seconds: time.Now().Add(time.Duration(i+2) * -time.Minute).Unix()}
 			require.NoError(t, streams[i].Send(&event))
-			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+1) * -time.Minute).Unix()}
+			event.Time = &timestamppb.Timestamp{Seconds: time.Now().Add(time.Duration(i+1) * -time.Minute).Unix()}
 			require.NoError(t, streams[i].Send(&event))
 		}
-		event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(-30 * time.Second).Unix()}
+		event.Time = &timestamppb.Timestamp{Seconds: time.Now().Add(-30 * time.Second).Unix()}
 		require.NoError(t, streams[0].Send(&event))
 		for i := range streams {
-			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+3) * -time.Second).Unix()}
+			event.Time = &timestamppb.Timestamp{Seconds: time.Now().Add(time.Duration(i+3) * -time.Second).Unix()}
 			require.NoError(t, streams[i].Send(&event))
-			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+2) * -time.Second).Unix()}
+			event.Time = &timestamppb.Timestamp{Seconds: time.Now().Add(time.Duration(i+2) * -time.Second).Unix()}
 			require.NoError(t, streams[i].Send(&event))
-			event.Time = &timestamp.Timestamp{Seconds: time.Now().Add(time.Duration(i+1) * -time.Second).Unix()}
+			event.Time = &timestamppb.Timestamp{Seconds: time.Now().Add(time.Duration(i+1) * -time.Second).Unix()}
 			require.NoError(t, streams[i].Send(&event))
 
 			_, err := streams[i].CloseAndRecv()

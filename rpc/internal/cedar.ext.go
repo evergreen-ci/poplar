@@ -5,22 +5,16 @@ import (
 
 	"github.com/evergreen-ci/juniper/gopb"
 	"github.com/evergreen-ci/poplar"
-	"github.com/golang/protobuf/ptypes"
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/pkg/errors"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func ExportArtifactInfo(in *poplar.TestArtifact) *gopb.ArtifactInfo {
 	out := &gopb.ArtifactInfo{
-		Bucket: in.Bucket,
-		Prefix: in.Prefix,
-		Path:   in.Path,
-		Tags:   in.Tags,
-	}
-
-	ts, err := ExportTimestamp(in.CreatedAt)
-	if err == nil {
-		out.CreatedAt = ts
+		Bucket:    in.Bucket,
+		Prefix:    in.Prefix,
+		Path:      in.Path,
+		Tags:      in.Tags,
+		CreatedAt: ExportTimestamp(in.CreatedAt),
 	}
 
 	switch {
@@ -89,15 +83,10 @@ func ExportRollup(in *poplar.TestMetrics) *gopb.RollupValue {
 	return out
 }
 
-func ExportTimestamp(t time.Time) (*timestamp.Timestamp, error) {
-	var ts *timestamp.Timestamp
-	var err error
+func ExportTimestamp(t time.Time) *timestamppb.Timestamp {
 	if !t.IsZero() {
-		ts, err = ptypes.TimestampProto(t)
-		if err != nil {
-			return nil, errors.Wrap(err, "problem specifying timestamp")
-		}
+		return timestamppb.New(t)
 	}
 
-	return ts, nil
+	return nil
 }

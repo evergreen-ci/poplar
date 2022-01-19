@@ -4,12 +4,15 @@ import (
 	"context"
 
 	"github.com/evergreen-ci/poplar"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 )
 
 type recorderService struct {
 	registry *poplar.RecorderRegistry
+
+	// UnimplementedPoplarMetricsRecorderServer must be embedded for
+	// forward compatibility. See recorder_grpc.pb.go for more information.
+	UnimplementedPoplarMetricsRecorderServer
 }
 
 func (s *recorderService) CreateRecorder(ctx context.Context, info *CreateOptions) (*PoplarResponse, error) {
@@ -57,12 +60,7 @@ func (s *recorderService) EndEvent(ctx context.Context, val *EventSendDuration) 
 		return nil, errors.Errorf("could not find recorder '%s'", val.Name)
 	}
 
-	dur, err := ptypes.Duration(val.Duration)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not convert duration value")
-	}
-
-	rec.EndIteration(dur)
+	rec.EndIteration(val.Duration.AsDuration())
 
 	return &PoplarResponse{Name: val.Name, Status: true}, nil
 }
@@ -84,12 +82,7 @@ func (s *recorderService) SetTime(ctx context.Context, t *EventSendTime) (*Popla
 		return nil, errors.Errorf("could not find recorder '%s'", t.Name)
 	}
 
-	ts, err := ptypes.Timestamp(t.Time)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not convert timestamp value")
-	}
-
-	rec.SetTime(ts)
+	rec.SetTime(t.Time.AsTime())
 
 	return &PoplarResponse{Name: t.Name, Status: true}, nil
 }
@@ -100,12 +93,7 @@ func (s *recorderService) SetDuration(ctx context.Context, val *EventSendDuratio
 		return nil, errors.Errorf("could not find recorder '%s'", val.Name)
 	}
 
-	dur, err := ptypes.Duration(val.Duration)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not convert duration value")
-	}
-
-	rec.SetDuration(dur)
+	rec.SetDuration(val.Duration.AsDuration())
 
 	return &PoplarResponse{Name: val.Name, Status: true}, nil
 }
@@ -116,12 +104,7 @@ func (s *recorderService) SetTotalDuration(ctx context.Context, val *EventSendDu
 		return nil, errors.Errorf("could not find recorder '%s'", val.Name)
 	}
 
-	dur, err := ptypes.Duration(val.Duration)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not convert duration value")
-	}
-
-	rec.SetTotalDuration(dur)
+	rec.SetTotalDuration(val.Duration.AsDuration())
 
 	return &PoplarResponse{Name: val.Name, Status: true}, nil
 }

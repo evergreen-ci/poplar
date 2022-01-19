@@ -1,21 +1,16 @@
 package internal
 
 import (
-	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/ftdc/events"
 )
 
 func (m *EventMetrics) Export() *events.Performance {
-	dur, _ := ptypes.Duration(m.Timers.Duration)
-	total, _ := ptypes.Duration(m.Timers.Total)
-	time, _ := ptypes.Timestamp(m.Time)
-
 	out := &events.Performance{
-		Timestamp: time,
+		Timestamp: m.Time.AsTime(),
 		ID:        m.Id,
 		Timers: events.PerformanceTimers{
-			Duration: dur,
-			Total:    total,
+			Duration: m.Timers.Duration.AsDuration(),
+			Total:    m.Timers.Total.AsDuration(),
 		},
 	}
 

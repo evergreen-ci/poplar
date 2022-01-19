@@ -120,10 +120,6 @@ func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient,
 			"dry_run": dryRun,
 		})
 
-		createdAt, err := internal.ExportTimestamp(test.CreatedAt)
-		if err != nil {
-			return err
-		}
 		artifacts, err := extractArtifacts(ctx, report, test)
 		if err != nil {
 			return err
@@ -147,7 +143,7 @@ func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient,
 				Tags:      test.Info.Tags,
 				Arguments: test.Info.Arguments,
 				Parent:    test.Info.Parent,
-				CreatedAt: createdAt,
+				CreatedAt: internal.ExportTimestamp(test.CreatedAt),
 			},
 			Artifacts: artifacts,
 			Rollups:   metrics,
@@ -178,14 +174,10 @@ func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient,
 			return errors.Wrapf(err, "problem submitting subtests of '%s'", test.ID)
 		}
 
-		completedAt, err := internal.ExportTimestamp(test.CompletedAt)
-		if err != nil {
-			return err
-		}
 		end := &gopb.MetricsSeriesEnd{
 			Id:          test.ID,
 			IsComplete:  true,
-			CompletedAt: completedAt,
+			CompletedAt: internal.ExportTimestamp(test.CompletedAt),
 		}
 
 		if dryRun {

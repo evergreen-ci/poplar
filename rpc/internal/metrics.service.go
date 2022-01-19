@@ -9,6 +9,10 @@ import (
 
 type metricsService struct {
 	registry *poplar.RecorderRegistry
+
+	// UnimplementedPoplarMetricsCollectorServer must be embedded for
+	// forward compatibility. See metrics_grpc.pb.go for more information.
+	UnimplementedPoplarMetricsCollectorServer
 }
 
 func (s *metricsService) CreateCollector(ctx context.Context, opts *CreateOptions) (*PoplarResponse, error) {

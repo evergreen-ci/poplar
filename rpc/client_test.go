@@ -13,12 +13,11 @@ import (
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
 	"github.com/evergreen-ci/utility"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type mockClient struct {
@@ -134,15 +133,13 @@ func TestClient(t *testing.T) {
 				assert.Equal(t, expectedTests[i].Info.Tags, result.Id.Tags)
 				assert.Equal(t, expectedTests[i].Info.Arguments, result.Id.Arguments)
 				assert.Equal(t, expectedParents[expectedTests[i].Info.TestName], result.Id.Parent)
-				var expectedCreatedAt *timestamp.Timestamp
-				var expectedCompletedAt *timestamp.Timestamp
+				var expectedCreatedAt *timestamppb.Timestamp
+				var expectedCompletedAt *timestamppb.Timestamp
 				if !expectedTests[i].CreatedAt.IsZero() {
-					expectedCreatedAt, err = ptypes.TimestampProto(expectedTests[i].CreatedAt)
-					require.NoError(t, err)
+					expectedCreatedAt = timestamppb.New(expectedTests[i].CreatedAt)
 				}
 				if !expectedTests[i].CompletedAt.IsZero() {
-					expectedCompletedAt, err = ptypes.TimestampProto(expectedTests[i].CompletedAt)
-					require.NoError(t, err)
+					expectedCompletedAt = timestamppb.New(expectedTests[i].CompletedAt)
 				}
 				assert.Equal(t, expectedCreatedAt, result.Id.CreatedAt)
 				assert.Equal(t, expectedCompletedAt, mc.endData[result.Id.TestName].CompletedAt)
