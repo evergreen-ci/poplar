@@ -7,7 +7,7 @@ require (
 	github.com/evergreen-ci/birch v0.0.0-20211025210128-7f3409c2b515
 	github.com/evergreen-ci/juniper v0.0.0-20220118233332-0813edc78908
 	github.com/evergreen-ci/pail v0.0.0-20211018155204-833e3187cfe7
-	github.com/evergreen-ci/utility v0.0.0-20211026201827-97b21fa2660a
+	github.com/evergreen-ci/utility v0.0.0-20220302150552-3f7a1a268ea7
 	github.com/mongodb/ftdc v0.0.0-20211018154918-80dd1c22e4cf
 	github.com/mongodb/grip v0.0.0-20211018154934-e661a71929d5
 	github.com/pkg/errors v0.9.1
