@@ -152,7 +152,7 @@ func (r *RecorderRegistry) Create(key string, collOpts CreateOptions) (events.Re
 
 	instance, err := collOpts.build()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not construct recorder output")
+		return nil, errors.Wrap(err, "constructing recorder output")
 	}
 
 	r.cache[key] = instance

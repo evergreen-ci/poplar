@@ -539,7 +539,7 @@ func TestSuiteType(t *testing.T) {
 			assert.Contains(t, err.Error(), "foo")
 			assert.True(t, counter > 50)
 		})
-		t.Run("CollectoError", func(t *testing.T) {
+		t.Run("CollectorError", func(t *testing.T) {
 			s := BenchmarkSuite{
 				{
 					CaseName:         "one",
@@ -569,8 +569,8 @@ func TestSuiteType(t *testing.T) {
 			res, err := s.Run(ctx, tmpdir)
 			assert.Error(t, err)
 			assert.Len(t, res, 1)
-			assert.Contains(t, err.Error(), "because it exists")
-			assert.Contains(t, err.Error(), "could not create")
+			assert.Contains(t, err.Error(), "because it already exists")
+			assert.Contains(t, err.Error(), "creating")
 		})
 
 		t.Run("Standard", func(t *testing.T) {
