@@ -55,7 +55,7 @@ func (s *metricsService) FlushSample(ctx context.Context, id *PoplarID) (*Poplar
 	}
 
 	if err := collector.Add(metrics.Dump()); err != nil {
-		return nil, errors.Wrap(err, "problem dumping service")
+		return nil, errors.Wrap(err, "dumping service")
 	}
 
 	metrics.Reset()
@@ -84,7 +84,7 @@ func (s *metricsService) Add(ctx context.Context, payload *IntervalSummary) (*Po
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, "problem adding metric")
+		return nil, errors.Wrap(err, "adding metric")
 	}
 
 	return &PoplarResponse{Name: payload.Collector, Status: true}, nil

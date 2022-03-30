@@ -623,11 +623,11 @@ func BenchmarkStandard(b *testing.B) {
 
 	tmpDir, err := ioutil.TempDir(".", "standard-benchmark-test")
 	if err != nil {
-		b.Fatal(errors.Wrap(err, "failed to create temp dir"))
+		b.Fatal(errors.Wrap(err, "creating temp dir"))
 	}
 	defer func() {
 		if err := os.RemoveAll(tmpDir); err != nil {
-			b.Fatal(errors.Wrap(err, "failed to remove temp dir"))
+			b.Fatal(errors.Wrap(err, "removing temp dir"))
 		}
 	}()
 

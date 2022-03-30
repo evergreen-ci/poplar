@@ -48,7 +48,7 @@ func (s *collectorService) CloseCollector(ctx context.Context, id *PoplarID) (*P
 	catcher.Add(s.registry.Close(id.Name))
 
 	grip.Error(message.WrapError(catcher.Resolve(), message.Fields{
-		"message":  "problem closing recorder",
+		"message":  "closing recorder",
 		"recorder": id.Name,
 	}))
 
@@ -58,7 +58,7 @@ func (s *collectorService) CloseCollector(ctx context.Context, id *PoplarID) (*P
 func (s *collectorService) SendEvent(ctx context.Context, event *EventMetrics) (*PoplarResponse, error) {
 	collector, ok := s.registry.GetEventsCollector(event.Name)
 	if !ok {
-		return nil, status.Errorf(codes.NotFound, "no registry named %s", event.Name)
+		return nil, status.Errorf(codes.NotFound, "no registry named '%s'", event.Name)
 	}
 
 	err := collector.AddEvent(event.Export())
@@ -72,7 +72,7 @@ func (s *collectorService) RegisterStream(ctx context.Context, name *CollectorNa
 	}
 
 	if err := s.coordinator.addStream(name.Name, s.registry); err != nil {
-		return nil, status.Errorf(codes.NotFound, "no registry named %s", name.Name)
+		return nil, status.Errorf(codes.NotFound, "no registry named '%s'", name.Name)
 	}
 
 	return &PoplarResponse{Name: name.Name, Status: true}, nil
@@ -92,7 +92,7 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 		if err == io.EOF {
 			if group != nil {
 				if err = group.closeStream(streamID); err != nil {
-					return status.Errorf(codes.Internal, "problem persisting argument %s", err.Error())
+					return status.Errorf(codes.Internal, errors.Wrap(err, "persisting argument").Error())
 				}
 			}
 			return srv.SendAndClose(&PoplarResponse{
@@ -114,7 +114,7 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 			eventName = event.Name
 			streamID, group, err = s.coordinator.getStream(eventName)
 			if err != nil {
-				return status.Error(codes.FailedPrecondition, errors.Wrap(err, "failed to get stream").Error())
+				return status.Error(codes.FailedPrecondition, errors.Wrap(err, "getting stream").Error())
 			}
 		}
 
@@ -123,11 +123,11 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 		}
 
 		if err := group.addEvent(ctx, streamID, event.Export()); err != nil {
-			return status.Errorf(codes.Internal, "problem persisting argument %s", err.Error())
+			return status.Errorf(codes.Internal, errors.Wrap(err, "persisting argument").Error())
 		}
 
 		if ctx.Err() != nil {
-			return status.Errorf(codes.Canceled, "operation canceled for %s", eventName)
+			return status.Errorf(codes.Canceled, "operation canceled for event '%s'", eventName)
 		}
 	}
 }
@@ -238,7 +238,7 @@ func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Pe
 	sg.eventHeap.SafePush(&performanceHeapItem{id: id, event: event})
 	stream.inHeap = true
 
-	return errors.Wrap(sg.flush(), "problem flushing to collector")
+	return errors.Wrap(sg.flush(), "flushing to collector")
 }
 
 // closeStream marks the given stream as closed. Once all the items in the
@@ -257,7 +257,7 @@ func (sg *streamGroup) closeStream(id string) error {
 		delete(sg.streams, id)
 	}
 
-	return errors.Wrap(sg.flush(), "problem flushing to collector")
+	return errors.Wrap(sg.flush(), "flushing to collector")
 }
 
 // flush attempts to flush all the streams' buffers to the collector. Each time

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/mongodb/grip"
-	"github.com/pkg/errors"
 )
 
 // Report is the top level object to represent a suite of performance
@@ -111,21 +110,10 @@ func (a *TestArtifact) Validate() error {
 		a.PayloadFTDC = true
 	}
 
-	if isMoreThanOneTrue([]bool{a.ConvertBSON2FTDC, a.ConvertCSV2FTDC, a.ConvertJSON2FTDC, a.ConvertGzip}) {
-		catcher.Add(errors.New("cannot specify contradictory conversion requests"))
-	}
-
-	if isMoreThanOneTrue([]bool{a.PayloadBSON, a.PayloadJSON, a.PayloadCSV, a.PayloadTEXT, a.PayloadFTDC}) {
-		catcher.Add(errors.New("must specify exactly one payload type"))
-	}
-
-	if isMoreThanOneTrue([]bool{a.DataGzipped, a.DataTarball, a.DataUncompressed}) {
-		catcher.Add(errors.New("must specify exactly one file format type"))
-	}
-
-	if isMoreThanOneTrue([]bool{a.EventsCollapsed, a.EventsHistogram, a.EventsIntervalSummary, a.EventsRaw}) {
-		catcher.Add(errors.New("must specify exactly one event format type"))
-	}
+	catcher.NewWhen(isMoreThanOneTrue([]bool{a.ConvertBSON2FTDC, a.ConvertCSV2FTDC, a.ConvertJSON2FTDC, a.ConvertGzip}), "cannot specify contradictory conversion requests")
+	catcher.NewWhen(isMoreThanOneTrue([]bool{a.PayloadBSON, a.PayloadJSON, a.PayloadCSV, a.PayloadTEXT, a.PayloadFTDC}), "must specify exactly one payload type")
+	catcher.NewWhen(isMoreThanOneTrue([]bool{a.DataGzipped, a.DataTarball, a.DataUncompressed}), "must specify exactly one file format type")
+	catcher.NewWhen(isMoreThanOneTrue([]bool{a.EventsCollapsed, a.EventsHistogram, a.EventsIntervalSummary, a.EventsRaw}), "must specify exactly one event format type")
 
 	return catcher.Resolve()
 }

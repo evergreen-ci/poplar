@@ -258,7 +258,7 @@ func (r *RecorderRegistry) MakeBenchmark(bench *BenchmarkCase) (func(*testing.B)
 	})
 
 	if err != nil {
-		return func(b *testing.B) { b.Fatal(errors.Wrap(err, "problem making recorder")) },
+		return func(b *testing.B) { b.Fatal(errors.Wrap(err, "making recorder")) },
 			func() error { return nil }
 	}
 
@@ -279,20 +279,20 @@ func (r *RecorderRegistry) Close(key string) error {
 
 		if impl.isCustom {
 			if err := impl.collector.Add(impl.tracker.Custom); err != nil {
-				return errors.Wrap(err, "problem flushing interval summarizations")
+				return errors.Wrap(err, "flushing interval summarizations")
 			}
 		} else {
 			if err := impl.recorder.EndTest(); err != nil {
-				return errors.Wrap(err, "problem flushing recorder")
+				return errors.Wrap(err, "flushing recorder")
 			}
 		}
 
 		if err := ftdc.FlushCollector(impl.collector, impl.file); err != nil {
-			return errors.Wrap(err, "problem writing collector contents to file")
+			return errors.Wrap(err, "writing collector contents to file")
 		}
 
 		if err := impl.file.Close(); err != nil {
-			return errors.Wrap(err, "problem closing open file")
+			return errors.Wrap(err, "closing open file")
 		}
 	}
 
@@ -321,12 +321,12 @@ func (opts *CreateOptions) build() (*recorderInstance, error) {
 	}
 
 	if _, err := os.Stat(opts.Path); !os.IsNotExist(err) {
-		return nil, errors.Errorf("could not create '%s' because it exists", opts.Path)
+		return nil, errors.Errorf("could not create file '%s' because it already exists", opts.Path)
 	}
 
 	file, err := os.Create(opts.Path)
 	if err != nil {
-		return nil, errors.Wrapf(err, "problem opening file '%s'", opts.Path)
+		return nil, errors.Wrapf(err, "opening file '%s'", opts.Path)
 	}
 
 	out := &recorderInstance{

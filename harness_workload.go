@@ -41,25 +41,11 @@ type BenchmarkWorkload struct {
 func (w *BenchmarkWorkload) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
-	if w.WorkloadTimeout != nil && w.Timeout() < time.Millisecond {
-		catcher.Add(errors.New("cannot specify timeout less than a millisecond"))
-	}
-
-	if w.Case == nil && w.Group == nil {
-		catcher.Add(errors.New("cannot define a workload with out work"))
-	}
-
-	if w.Case != nil && w.Group != nil {
-		catcher.Add(errors.New("cannot define a workload with both a case and a group"))
-	}
-
-	if w.Instances <= 1 {
-		catcher.Add(errors.New("must define more than a single instance in a workload"))
-	}
-
-	if w.WorkloadName == "" && w.Case == nil {
-		catcher.Add(errors.New("must specify a name for a workload"))
-	}
+	catcher.NewWhen(w.WorkloadTimeout != nil && w.Timeout() < time.Millisecond, "cannot specify timeout less than a millisecond")
+	catcher.NewWhen(w.Case == nil && w.Group == nil, "cannot define a workload without work")
+	catcher.NewWhen(w.Case != nil && w.Group != nil, "cannot define a workload with both a case and a group")
+	catcher.NewWhen(w.Instances <= 1, "must define more than a single instance in a workload")
+	catcher.NewWhen(w.WorkloadName == "" && w.Case == nil, "must specify a name for a workload")
 
 	if w.Case != nil {
 		catcher.Add(w.Case.Validate())

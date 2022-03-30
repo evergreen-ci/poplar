@@ -31,7 +31,7 @@ func (a *TestArtifact) SetBucketInfo(conf BucketConfiguration) error {
 	}
 	if a.Bucket == "" {
 		if conf.Name == "" {
-			return errors.New("cannot upload file, no bucket specified")
+			return errors.New("cannot upload file without a specified bucket")
 		}
 		a.Bucket = conf.Name
 	}
@@ -50,7 +50,7 @@ func (a *TestArtifact) SetBucketInfo(conf BucketConfiguration) error {
 // optionally gzipping the results.
 func (a *TestArtifact) Convert(ctx context.Context) error {
 	if err := a.Validate(); err != nil {
-		return errors.New("invalid test artifact")
+		return errors.Wrap(err, "invalid test artifact")
 	}
 
 	if a.LocalFile == "" {
@@ -58,32 +58,32 @@ func (a *TestArtifact) Convert(ctx context.Context) error {
 	}
 
 	if _, err := os.Stat(a.LocalFile); os.IsNotExist(err) {
-		return errors.New("cannot convert non existent file")
+		return errors.New("cannot convert nonexistent file")
 	}
 
 	switch {
 	case a.ConvertBSON2FTDC:
 		fn, err := a.bsonToFTDC(ctx, a.LocalFile)
 		if err != nil {
-			return errors.Wrap(err, "problem converting file")
+			return errors.Wrap(err, "converting file from BSON to FTDC")
 		}
 		a.LocalFile = fn
 	case a.ConvertJSON2FTDC:
 		fn, err := a.jsonToFTDC(ctx, a.LocalFile)
 		if err != nil {
-			return errors.Wrap(err, "problem converting file")
+			return errors.Wrap(err, "converting file from JSON to FTDC")
 		}
 		a.LocalFile = fn
 	case a.ConvertCSV2FTDC:
 		fn, err := a.csvToFTDC(ctx, a.LocalFile)
 		if err != nil {
-			return errors.Wrap(err, "problem converting file")
+			return errors.Wrap(err, "converting file from CSV to FTDC")
 		}
 		a.LocalFile = fn
 	case a.ConvertGzip:
 		fn, err := a.gzip(a.LocalFile)
 		if err != nil {
-			return errors.Wrap(err, "problem writing file")
+			return errors.Wrap(err, "writing gzip file")
 		}
 		a.LocalFile = fn
 	}
@@ -115,11 +115,11 @@ func (a *TestArtifact) Upload(ctx context.Context, conf BucketConfiguration, dry
 
 	bucket, err := pail.NewS3MultiPartBucketWithHTTPClient(client, opts)
 	if err != nil {
-		return errors.Wrap(err, "could not construct bucket")
+		return errors.Wrap(err, "creating bucket")
 	}
 
 	if err := bucket.Upload(ctx, a.Path, a.LocalFile); err != nil {
-		return errors.Wrap(err, "problem uploading file")
+		return errors.Wrap(err, "uploading file")
 	}
 
 	return nil
@@ -128,7 +128,7 @@ func (a *TestArtifact) Upload(ctx context.Context, conf BucketConfiguration, dry
 func (a *TestArtifact) bsonToFTDC(ctx context.Context, path string) (string, error) {
 	srcFile, err := os.Open(path)
 	if err != nil {
-		return path, errors.Wrapf(err, "problem opening bson input file '%s'", path)
+		return path, errors.Wrapf(err, "opening BSON input file '%s'", path)
 	}
 	defer srcFile.Close()
 
@@ -136,16 +136,16 @@ func (a *TestArtifact) bsonToFTDC(ctx context.Context, path string) (string, err
 	catcher := grip.NewCatcher()
 	ftdcFile, err := os.Create(path)
 	if err != nil {
-		return path, errors.Wrapf(err, "problem opening ftdc output file '%s'", path)
+		return path, errors.Wrapf(err, "opening FTDC output file '%s'", path)
 	}
-	defer func() { catcher.Add(ftdcFile.Close()) }()
+	defer ftdcFile.Close()
 
 	collector := ftdc.NewStreamingDynamicCollector(defaultChunkSize, ftdcFile)
-	defer func() { catcher.Add(ftdc.FlushCollector(collector, ftdcFile)) }()
+	defer ftdc.FlushCollector(collector, ftdcFile)
 
 	for {
 		if ctx.Err() != nil {
-			catcher.Add(errors.New("operation aborted"))
+			catcher.New("operation aborted")
 			break
 		}
 
@@ -155,13 +155,13 @@ func (a *TestArtifact) bsonToFTDC(ctx context.Context, path string) (string, err
 			if err == io.EOF {
 				break
 			}
-			catcher.Add(errors.Wrap(err, "failed to read BSON"))
+			catcher.Wrap(err, "reading BSON")
 			break
 		}
 
 		err = collector.Add(bsonDoc)
 		if err != nil {
-			catcher.Add(errors.Wrap(err, "failed to write FTDC from BSON"))
+			catcher.Wrap(err, "writing FTDC from BSON")
 			break
 		}
 	}
@@ -172,7 +172,7 @@ func (a *TestArtifact) bsonToFTDC(ctx context.Context, path string) (string, err
 func (a *TestArtifact) csvToFTDC(ctx context.Context, path string) (string, error) {
 	srcFile, err := os.Open(path)
 	if err != nil {
-		return path, errors.Wrapf(err, "problem opening csv input file '%s'", path)
+		return path, errors.Wrapf(err, "opening CSV input file '%s'", path)
 	}
 	defer srcFile.Close()
 
@@ -180,12 +180,11 @@ func (a *TestArtifact) csvToFTDC(ctx context.Context, path string) (string, erro
 	catcher := grip.NewCatcher()
 	ftdcFile, err := os.Create(path)
 	if err != nil {
-		return path, errors.Wrapf(err, "problem opening ftdc output file '%s'", path)
+		return path, errors.Wrapf(err, "opening ftdc output file '%s'", path)
 	}
-	defer func() { catcher.Add(ftdcFile.Close()) }()
+	defer ftdcFile.Close()
 
-	catcher.Add(errors.Wrap(ftdc.ConvertFromCSV(ctx, defaultChunkSize, srcFile, ftdcFile),
-		"problem converting csv to ftdc file"))
+	catcher.Wrap(ftdc.ConvertFromCSV(ctx, defaultChunkSize, srcFile, ftdcFile), "converting CSV to FTDC file")
 
 	return path, catcher.Resolve()
 }
@@ -193,17 +192,16 @@ func (a *TestArtifact) csvToFTDC(ctx context.Context, path string) (string, erro
 func (a *TestArtifact) jsonToFTDC(ctx context.Context, path string) (string, error) {
 	srcFile, err := os.Open(path)
 	if err != nil {
-		return path, errors.Wrapf(err, "problem opening csv input file '%s'", path)
+		return path, errors.Wrapf(err, "opening CSV input file '%s'", path)
 	}
 	defer srcFile.Close()
 
 	path = strings.TrimSuffix(path, ".json") + ".ftdc"
-	catcher := grip.NewCatcher()
 	ftdcFile, err := os.Create(path)
 	if err != nil {
-		return path, errors.Wrapf(err, "problem opening ftdc output file '%s'", path)
+		return path, errors.Wrapf(err, "opening FTDC output file '%s'", path)
 	}
-	defer func() { catcher.Add(ftdcFile.Close()) }()
+	defer ftdcFile.Close()
 
 	opts := metrics.CollectJSONOptions{
 		OutputFilePrefix: strings.TrimSuffix(path, ".json"),
@@ -216,24 +214,24 @@ func (a *TestArtifact) jsonToFTDC(ctx context.Context, path string) (string, err
 func (a *TestArtifact) gzip(path string) (string, error) {
 	srcFile, err := os.Open(path)
 	if err != nil {
-		return path, errors.Wrapf(err, "problem opening bson input file '%s'", path)
+		return path, errors.Wrapf(err, "opening BSON input file '%s'", path)
 	}
 	defer srcFile.Close()
 
 	path += ".gz"
-	catcher := grip.NewCatcher()
 	outFile, err := os.Create(path)
 	if err != nil {
-		return path, errors.Wrapf(err, "problem opening ftdc output file '%s'", path)
+		return path, errors.Wrapf(err, "opening FTDC output file '%s'", path)
 	}
-	defer func() { catcher.Add(outFile.Close()) }()
+	defer outFile.Close()
 
+	catcher := grip.NewCatcher()
 	writer, err := gzip.NewWriterLevel(outFile, gzip.BestCompression)
 	if err != nil {
 		catcher.Add(err)
 		return path, catcher.Resolve()
 	}
-	defer func() { catcher.Add(writer.Close()) }()
+	defer writer.Close()
 
 	_, err = io.Copy(writer, srcFile)
 	catcher.Add(err)

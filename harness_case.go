@@ -235,29 +235,12 @@ func (c *BenchmarkCase) Validate() error {
 
 	catcher := grip.NewBasicCatcher()
 
-	if c.Bench == nil {
-		catcher.Add(errors.New("must specify a valid benchmark"))
-	}
-
-	if c.MinIterations == 0 {
-		catcher.Add(errors.New("must define a minmum number of iterations"))
-	}
-
-	if c.MinRuntime == 0 {
-		catcher.Add(errors.New("must define a minmum runtime for the case"))
-	}
-
-	if c.MinRuntime >= c.MaxRuntime {
-		catcher.Add(errors.New("min runtime must not be >= max runtime "))
-	}
-
-	if c.MinIterations >= c.MaxIterations {
-		catcher.Add(errors.New("min iterations must not be >= max iterations"))
-	}
-
-	if c.IterationTimeout > c.Timeout {
-		catcher.Add(errors.New("iteration timeout cannot be longer than case timeout"))
-	}
+	catcher.NewWhen(c.Bench == nil, "must specify a valid benchmark")
+	catcher.NewWhen(c.MinIterations == 0, "must define a minimum number of iterations")
+	catcher.NewWhen(c.MinRuntime == 0, "must define a minimum runtime for the case")
+	catcher.NewWhen(c.MinRuntime >= c.MaxRuntime, "min runtime must be less than max runtime")
+	catcher.NewWhen(c.MinIterations >= c.MaxIterations, "min iterations must be less than max iterations")
+	catcher.NewWhen(c.IterationTimeout > c.Timeout, "iteration timeout cannot be longer than case timeout")
 
 	return catcher.Resolve()
 }
