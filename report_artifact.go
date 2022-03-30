@@ -130,7 +130,9 @@ func (a *TestArtifact) bsonToFTDC(ctx context.Context, path string) (string, err
 	if err != nil {
 		return path, errors.Wrapf(err, "opening BSON input file '%s'", path)
 	}
-	defer srcFile.Close()
+	defer func() {
+		_ = srcFile.Close()
+	}()
 
 	path = strings.TrimSuffix(path, ".bson") + ".ftdc"
 	catcher := grip.NewCatcher()
@@ -138,10 +140,14 @@ func (a *TestArtifact) bsonToFTDC(ctx context.Context, path string) (string, err
 	if err != nil {
 		return path, errors.Wrapf(err, "opening FTDC output file '%s'", path)
 	}
-	defer ftdcFile.Close()
+	defer func() {
+		_ = ftdcFile.Close()
+	}()
 
 	collector := ftdc.NewStreamingDynamicCollector(defaultChunkSize, ftdcFile)
-	defer ftdc.FlushCollector(collector, ftdcFile)
+	defer func() {
+		_ = ftdc.FlushCollector(collector, ftdcFile)
+	}()
 
 	for {
 		if ctx.Err() != nil {
@@ -174,7 +180,9 @@ func (a *TestArtifact) csvToFTDC(ctx context.Context, path string) (string, erro
 	if err != nil {
 		return path, errors.Wrapf(err, "opening CSV input file '%s'", path)
 	}
-	defer srcFile.Close()
+	defer func() {
+		_ = srcFile.Close()
+	}()
 
 	path = strings.TrimSuffix(path, ".csv") + ".ftdc"
 	catcher := grip.NewCatcher()
@@ -182,7 +190,9 @@ func (a *TestArtifact) csvToFTDC(ctx context.Context, path string) (string, erro
 	if err != nil {
 		return path, errors.Wrapf(err, "opening ftdc output file '%s'", path)
 	}
-	defer ftdcFile.Close()
+	defer func() {
+		_ = ftdcFile.Close()
+	}()
 
 	catcher.Wrap(ftdc.ConvertFromCSV(ctx, defaultChunkSize, srcFile, ftdcFile), "converting CSV to FTDC file")
 
@@ -194,14 +204,18 @@ func (a *TestArtifact) jsonToFTDC(ctx context.Context, path string) (string, err
 	if err != nil {
 		return path, errors.Wrapf(err, "opening CSV input file '%s'", path)
 	}
-	defer srcFile.Close()
+	defer func() {
+		_ = srcFile.Close()
+	}()
 
 	path = strings.TrimSuffix(path, ".json") + ".ftdc"
 	ftdcFile, err := os.Create(path)
 	if err != nil {
 		return path, errors.Wrapf(err, "opening FTDC output file '%s'", path)
 	}
-	defer ftdcFile.Close()
+	defer func() {
+		_ = ftdcFile.Close()
+	}()
 
 	opts := metrics.CollectJSONOptions{
 		OutputFilePrefix: strings.TrimSuffix(path, ".json"),
@@ -216,14 +230,18 @@ func (a *TestArtifact) gzip(path string) (string, error) {
 	if err != nil {
 		return path, errors.Wrapf(err, "opening BSON input file '%s'", path)
 	}
-	defer srcFile.Close()
+	defer func() {
+		_ = srcFile.Close()
+	}()
 
 	path += ".gz"
 	outFile, err := os.Create(path)
 	if err != nil {
 		return path, errors.Wrapf(err, "opening FTDC output file '%s'", path)
 	}
-	defer outFile.Close()
+	defer func() {
+		_ = outFile.Close()
+	}()
 
 	catcher := grip.NewCatcher()
 	writer, err := gzip.NewWriterLevel(outFile, gzip.BestCompression)
@@ -231,7 +249,9 @@ func (a *TestArtifact) gzip(path string) (string, error) {
 		catcher.Add(err)
 		return path, catcher.Resolve()
 	}
-	defer writer.Close()
+	defer func() {
+		_ = writer.Close()
+	}()
 
 	_, err = io.Copy(writer, srcFile)
 	catcher.Add(err)
