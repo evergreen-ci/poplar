@@ -321,7 +321,7 @@ func (opts *CreateOptions) build() (*recorderInstance, error) {
 	}
 
 	if _, err := os.Stat(opts.Path); !os.IsNotExist(err) {
-		return nil, errors.Errorf("could not create file '%s' because it already exists", opts.Path)
+		return nil, errors.Errorf("file '%s' already exists", opts.Path)
 	}
 
 	file, err := os.Create(opts.Path)

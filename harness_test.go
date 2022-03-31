@@ -570,7 +570,6 @@ func TestSuiteType(t *testing.T) {
 			assert.Error(t, err)
 			assert.Len(t, res, 1)
 			assert.Contains(t, err.Error(), "because it already exists")
-			assert.Contains(t, err.Error(), "creating")
 		})
 
 		t.Run("Standard", func(t *testing.T) {
