@@ -11,9 +11,9 @@ require (
 	github.com/mongodb/ftdc v0.0.0-20211018154918-80dd1c22e4cf
 	github.com/mongodb/grip v0.0.0-20211018154934-e661a71929d5
 	github.com/pkg/errors v0.9.1
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 	go.mongodb.org/mongo-driver v1.8.3
-	google.golang.org/grpc v1.44.0
+	google.golang.org/grpc v1.45.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
