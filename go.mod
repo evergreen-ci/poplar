@@ -12,7 +12,7 @@ require (
 	github.com/mongodb/grip v0.0.0-20211018154934-e661a71929d5
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.1
-	go.mongodb.org/mongo-driver v1.8.3
+	go.mongodb.org/mongo-driver v1.8.4
 	google.golang.org/grpc v1.45.0
 	gopkg.in/yaml.v2 v2.4.0
 )
