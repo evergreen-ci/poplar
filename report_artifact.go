@@ -249,5 +249,5 @@ func (a *TestArtifact) gzip(path string) (string, error) {
 	}()
 
 	_, err = io.Copy(writer, srcFile)
-	return outputPath, errors.Wrapf(err, "copying from input file '%s' to output file '%s'", srcFile, outputPath)
+	return outputPath, errors.Wrapf(err, "copying from input file '%s' to output file '%s'", path, outputPath)
 }
