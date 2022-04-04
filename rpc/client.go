@@ -159,7 +159,7 @@ func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient,
 			var resp *gopb.MetricsResponse
 			resp, err = client.CreateMetricSeries(ctx, resultData)
 			if err != nil {
-				return errors.Wrapf(err, "submitting test %d of %d", idx, len(tests))
+				return errors.Wrapf(err, "submitting test %d of %d", idx+1, len(tests))
 			} else if !resp.Success {
 				return errors.New("operation return failed state")
 			}

@@ -92,7 +92,7 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 		if err == io.EOF {
 			if group != nil {
 				if err = group.closeStream(streamID); err != nil {
-					return status.Errorf(codes.Internal, errors.Wrap(err, "persisting argument").Error())
+					return status.Error(codes.Internal, errors.Wrap(err, "persisting argument").Error())
 				}
 			}
 			return srv.SendAndClose(&PoplarResponse{
@@ -119,11 +119,11 @@ func (s *collectorService) StreamEvents(srv PoplarEventCollector_StreamEventsSer
 		}
 
 		if event.Name != eventName {
-			return status.Errorf(codes.InvalidArgument, "cannot request different registries in the same stream")
+			return status.Error(codes.InvalidArgument, "cannot request different registries in the same stream")
 		}
 
 		if err := group.addEvent(ctx, streamID, event.Export()); err != nil {
-			return status.Errorf(codes.Internal, errors.Wrap(err, "persisting argument").Error())
+			return status.Error(codes.Internal, errors.Wrap(err, "persisting argument").Error())
 		}
 
 		if ctx.Err() != nil {

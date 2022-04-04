@@ -185,7 +185,6 @@ func (a *TestArtifact) csvToFTDC(ctx context.Context, path string) (string, erro
 	}()
 
 	path = strings.TrimSuffix(path, ".csv") + ".ftdc"
-	catcher := grip.NewCatcher()
 	ftdcFile, err := os.Create(path)
 	if err != nil {
 		return path, errors.Wrapf(err, "opening ftdc output file '%s'", path)
@@ -194,9 +193,7 @@ func (a *TestArtifact) csvToFTDC(ctx context.Context, path string) (string, erro
 		_ = ftdcFile.Close()
 	}()
 
-	catcher.Wrap(ftdc.ConvertFromCSV(ctx, defaultChunkSize, srcFile, ftdcFile), "converting CSV to FTDC file")
-
-	return path, catcher.Resolve()
+	return path, errors.Wrap(ftdc.ConvertFromCSV(ctx, defaultChunkSize, srcFile, ftdcFile), "converting CSV to FTDC file")
 }
 
 func (a *TestArtifact) jsonToFTDC(ctx context.Context, path string) (string, error) {
@@ -222,7 +219,7 @@ func (a *TestArtifact) jsonToFTDC(ctx context.Context, path string) (string, err
 		InputSource:      ftdcFile,
 	}
 	_, err = metrics.CollectJSONStream(ctx, opts)
-	return path, err
+	return path, errors.Wrap(err, "collecting JSON stream")
 }
 
 func (a *TestArtifact) gzip(path string) (string, error) {
@@ -234,26 +231,23 @@ func (a *TestArtifact) gzip(path string) (string, error) {
 		_ = srcFile.Close()
 	}()
 
-	path += ".gz"
-	outFile, err := os.Create(path)
+	outputPath := path + ".gz"
+	outFile, err := os.Create(outputPath)
 	if err != nil {
-		return path, errors.Wrapf(err, "opening FTDC output file '%s'", path)
+		return outputPath, errors.Wrapf(err, "opening FTDC output file '%s'", outputPath)
 	}
 	defer func() {
 		_ = outFile.Close()
 	}()
 
-	catcher := grip.NewCatcher()
 	writer, err := gzip.NewWriterLevel(outFile, gzip.BestCompression)
 	if err != nil {
-		catcher.Add(err)
-		return path, catcher.Resolve()
+		return outputPath, errors.Wrap(err, "creating gzip writer")
 	}
 	defer func() {
 		_ = writer.Close()
 	}()
 
 	_, err = io.Copy(writer, srcFile)
-	catcher.Add(err)
-	return path, catcher.Resolve()
+	return outputPath, errors.Wrapf(err, "copying from input file '%s' to output file '%s'", srcFile, outputPath)
 }

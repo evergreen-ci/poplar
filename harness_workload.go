@@ -42,7 +42,7 @@ func (w *BenchmarkWorkload) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
 	catcher.NewWhen(w.WorkloadTimeout != nil && w.Timeout() < time.Millisecond, "cannot specify timeout less than a millisecond")
-	catcher.NewWhen(w.Case == nil && w.Group == nil, "cannot define a workload without work")
+	catcher.NewWhen(w.Case == nil && w.Group == nil, "must specify a case or a group workload")
 	catcher.NewWhen(w.Case != nil && w.Group != nil, "cannot define a workload with both a case and a group")
 	catcher.NewWhen(w.Instances <= 1, "must define more than a single instance in a workload")
 	catcher.NewWhen(w.WorkloadName == "" && w.Case == nil, "must specify a name for a workload")
