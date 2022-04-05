@@ -539,7 +539,7 @@ func TestSuiteType(t *testing.T) {
 			assert.Contains(t, err.Error(), "foo")
 			assert.True(t, counter > 50)
 		})
-		t.Run("CollectoError", func(t *testing.T) {
+		t.Run("CollectorError", func(t *testing.T) {
 			s := BenchmarkSuite{
 				{
 					CaseName:         "one",
@@ -569,8 +569,7 @@ func TestSuiteType(t *testing.T) {
 			res, err := s.Run(ctx, tmpdir)
 			assert.Error(t, err)
 			assert.Len(t, res, 1)
-			assert.Contains(t, err.Error(), "because it exists")
-			assert.Contains(t, err.Error(), "could not create")
+			assert.Contains(t, err.Error(), "already exists")
 		})
 
 		t.Run("Standard", func(t *testing.T) {
@@ -623,11 +622,11 @@ func BenchmarkStandard(b *testing.B) {
 
 	tmpDir, err := ioutil.TempDir(".", "standard-benchmark-test")
 	if err != nil {
-		b.Fatal(errors.Wrap(err, "failed to create temp dir"))
+		b.Fatal(errors.Wrap(err, "creating temp dir"))
 	}
 	defer func() {
 		if err := os.RemoveAll(tmpDir); err != nil {
-			b.Fatal(errors.Wrap(err, "failed to remove temp dir"))
+			b.Fatal(errors.Wrap(err, "removing temp dir"))
 		}
 	}()
 

@@ -58,7 +58,7 @@ func LoadReport(fn string) (*Report, error) {
 // the `Tests` field.
 func LoadTests(fn string) (*Report, error) {
 	if strings.HasSuffix(fn, ".bson") {
-		return nil, errors.New("cannot load an array of tests from bson")
+		return nil, errors.New("cannot load an array of tests from BSON")
 	}
 
 	out := []Test{}
@@ -73,18 +73,18 @@ func LoadTests(fn string) (*Report, error) {
 
 func readFile(fn string, out interface{}) error {
 	if stat, err := os.Stat(fn); os.IsNotExist(err) || stat.IsDir() {
-		return errors.Errorf("'%s' does not exist", fn)
+		return errors.Errorf("file '%s' does not exist", fn)
 	}
 
 	unmarshal := getUnmarshaler(fn)
 	if unmarshal == nil {
-		return errors.Errorf("cannot find unmarshler for input %s", fn)
+		return errors.Errorf("cannot find unmarshaller for file '%s'", fn)
 	}
 
 	data, err := ioutil.ReadFile(fn)
 	if err != nil {
-		return errors.Wrapf(err, "problem reading data from %s", fn)
+		return errors.Wrapf(err, "reading data from file '%s'", fn)
 	}
 
-	return errors.Wrap(unmarshal(data, out), "problem unmarshaling report data")
+	return errors.Wrap(unmarshal(data, out), "unmarshalling report data")
 }

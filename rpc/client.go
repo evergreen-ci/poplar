@@ -159,7 +159,7 @@ func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient,
 			var resp *gopb.MetricsResponse
 			resp, err = client.CreateMetricSeries(ctx, resultData)
 			if err != nil {
-				return errors.Wrapf(err, "problem submitting test %d of %d", idx, len(tests))
+				return errors.Wrapf(err, "submitting test %d of %d", idx+1, len(tests))
 			} else if !resp.Success {
 				return errors.New("operation return failed state")
 			}
@@ -171,7 +171,7 @@ func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient,
 		}
 
 		if err = uploadTests(ctx, client, report, test.SubTests, dryRun); err != nil {
-			return errors.Wrapf(err, "problem submitting subtests of '%s'", test.ID)
+			return errors.Wrapf(err, "submitting subtests of '%s'", test.ID)
 		}
 
 		end := &gopb.MetricsSeriesEnd{
@@ -190,7 +190,7 @@ func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient,
 			var resp *gopb.MetricsResponse
 			resp, err = client.CloseMetrics(ctx, end)
 			if err != nil {
-				return errors.Wrapf(err, "problem closing metrics series for '%s'", test.ID)
+				return errors.Wrapf(err, "closing metrics series for '%s'", test.ID)
 			} else if !resp.Success {
 				return errors.New("operation return failed state")
 			}
@@ -205,7 +205,7 @@ func extractArtifacts(ctx context.Context, report *poplar.Report, test poplar.Te
 	artifacts := make([]*gopb.ArtifactInfo, 0, len(test.Artifacts))
 	for _, a := range test.Artifacts {
 		if err := a.Validate(); err != nil {
-			return nil, errors.Wrap(err, "problem validating artifact")
+			return nil, errors.Wrap(err, "invalid artifacts")
 		}
 		artifacts = append(artifacts, internal.ExportArtifactInfo(&a))
 		artifacts[len(artifacts)-1].Location = gopb.StorageLocation_CEDAR_S3

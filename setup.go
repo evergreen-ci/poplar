@@ -62,12 +62,12 @@ func ReportSetup(reportType ReportType, filename string) (*Report, error) {
 func reportSetupUnmarshal(reportType ReportType, filename string, unmarshal func([]byte, interface{}) error) (*Report, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, errors.Wrapf(err, "problem opening file %s", filename)
+		return nil, errors.Wrapf(err, "opening file '%s'", filename)
 	}
 
 	report := &Report{}
 	if err := unmarshal(data, report); err != nil {
-		return nil, errors.Wrapf(err, "problem unmarshalling %s from %s", reportType, filename)
+		return nil, errors.Wrapf(err, "unmarshalling report format '%s' from file '%s'", reportType, filename)
 	}
 
 	return report, nil
@@ -81,19 +81,19 @@ func reportSetupEnv() (*Report, error) {
 	if os.Getenv(MainlineEnv) != "" {
 		mainline, err = strconv.ParseBool(os.Getenv(MainlineEnv))
 		if err != nil {
-			return nil, errors.Wrapf(err, "env var %s should be a bool", MainlineEnv)
+			return nil, errors.Wrapf(err, "env var '%s' should be a bool", MainlineEnv)
 		}
 	}
 	if mainline && os.Getenv(OrderEnv) != "" {
 		order, err = strconv.Atoi(os.Getenv(OrderEnv))
 		if err != nil {
-			return nil, errors.Wrapf(err, "env var %s should be an int", OrderEnv)
+			return nil, errors.Wrapf(err, "env var '%s' should be an int", OrderEnv)
 		}
 	}
 	if os.Getenv(ExecutionEnv) != "" {
 		execution, err = strconv.Atoi(os.Getenv(ExecutionEnv))
 		if err != nil {
-			return nil, errors.Wrapf(err, "env var %s should be an int", ExecutionEnv)
+			return nil, errors.Wrapf(err, "env var '%s' should be an int", ExecutionEnv)
 		}
 	}
 
