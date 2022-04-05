@@ -17,4 +17,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-require google.golang.org/protobuf v1.27.1
+require google.golang.org/protobuf v1.28.0
