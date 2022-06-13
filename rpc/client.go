@@ -24,17 +24,15 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	ResultsHandlerHost = "https://yv5aascdn3.execute-api.us-east-1.amazonaws.com/prod/v1/results"
-)
-
 type UploadReportOptions struct {
-	Report          *poplar.Report
-	ClientConn      *grpc.ClientConn
-	SerializeUpload bool
-	AWSSecretKey    string
-	AWSAccessKey    string
-	DryRun          bool
+	Report             *poplar.Report
+	ClientConn         *grpc.ClientConn
+	SerializeUpload    bool
+	AWSSecretKey       string
+	AWSAccessKey       string
+	ResultsHandlerHost string
+	ResultType         string
+	DryRun             bool
 }
 
 type SignedUrl struct {
@@ -46,8 +44,15 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		return errors.Wrap(err, "uploading tests for report")
 	}
-	return errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.AWSSecretKey, opts.AWSAccessKey, opts.DryRun),
-		"uploading tests for report")
+	err := errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun), "uploading tests for report")
+	if err != nil {
+			return err
+	}
+	err = errors.Wrap(uploadResultsToPSS(opts.Report, opts.AWSSecretKey, opts.AWSAccessKey, opts.ResultsHandlerHost, opts.ResultType, opts.DryRun), "uploading results to PSS")
+	if err != nil {
+			return err
+	}
+	return nil
 }
 
 func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) error {
@@ -107,10 +112,10 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 				return
 			}
 
-			// if err := test.Artifacts[j].Convert(ctx); err != nil {
-			// 	catcher.Wrap(err, "converting artifact")
-			// 	continue
-			// }
+			if err := test.Artifacts[j].Convert(ctx); err != nil {
+				catcher.Wrap(err, "converting artifact")
+				continue
+			}
 
 			if err := test.Artifacts[j].SetBucketInfo(opts.Report.BucketConf); err != nil {
 				catcher.Wrap(err, "setting bucket info")
@@ -124,21 +129,20 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 				"prefix": test.Artifacts[j].Prefix,
 				"file":   test.Artifacts[j].LocalFile,
 			})
-			// catcher.Wrapf(test.Artifacts[j].Upload(ctx, opts.Report.BucketConf, opts.DryRun), "uploading artifact")
+			catcher.Wrapf(test.Artifacts[j].Upload(ctx, opts.Report.BucketConf, opts.DryRun), "uploading artifact")
 		}
 	}
 }
 
 
-func getSignedURL(task string, execution int, awsRegion string, data []byte, awsSecretKey string, awsAccessKey string) (string, error) {
-	resultType := "cedar-report"
+func getSignedURL(task string, execution int, awsRegion string, data []byte, awsSecretKey string, awsAccessKey string, resultsHandlerHost string, resultType string) (string, error) {
 	service := "execute-api"
-	if awsSecretKey == "" || awsAccessKey == "" {
-		return "", errors.New("Getting signed URL failed. AWS secret key or/and access key not specified")
+	if awsSecretKey == "" || awsAccessKey == "" || resultsHandlerHost == "" || resultType == ""{
+		return "", errors.New("Getting signed URL failed. AWS secret key, AWS access key, resuls handler host and result type required.")
 	}
 	client := &http.Client{}
 	name := uuid.New()
-	url := fmt.Sprintf("%s/evergreen/%s/%s/%s/%s", ResultsHandlerHost, task, strconv.Itoa(execution), resultType, name.String())
+	url := fmt.Sprintf("%s/evergreen/%s/%s/%s/%s", resultsHandlerHost, task, strconv.Itoa(execution), resultType, name.String())
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(data))
 	if err != nil {
 			return "", err
@@ -182,19 +186,19 @@ func uploadTestReport(signedUrl string, data []byte) error {
 }
 
 // uploadResults uploads cedar results to S3 bucket which triggers rollups in perf-summarizer-service(PSS)
-func uploadResultsToPSS(report *poplar.Report, test poplar.Test, awsSecretKey string, awsAccessKey string, dryRun bool,) error {
+func uploadResultsToPSS(report *poplar.Report, awsSecretKey string, awsAccessKey string, resultsHandlerHost string, resultType string, dryRun bool,) error {
 	if !dryRun {
 		grip.Info(message.Fields{
 			"message":     "dry-run mode",
 			"function":    "uploadResultsToPSS",
-			"result_data": test,
+			"result_data": report,
 		})
 	} else {
-		jsonResp, err := json.Marshal(test)
+		jsonResp, err := json.Marshal(report)
 		if err != nil {
 				return err
 		}
-		signedUrl, err := getSignedURL(report.TaskName, report.Execution, report.BucketConf.Region, jsonResp, awsSecretKey, awsAccessKey)
+		signedUrl, err := getSignedURL(report.TaskName, report.Execution, report.BucketConf.Region, jsonResp, awsSecretKey, awsAccessKey, resultsHandlerHost, resultType)
 		if err != nil {
 				return err
 		}
@@ -206,7 +210,7 @@ func uploadResultsToPSS(report *poplar.Report, test poplar.Test, awsSecretKey st
 	return nil
 }
 
-func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient, report *poplar.Report, tests []poplar.Test, awsSecretKey string, awsAccessKey string, dryRun bool) error {
+func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient, report *poplar.Report, tests []poplar.Test, dryRun bool) error {
 	for idx, test := range tests {
 		grip.Info(message.Fields{
 			"num":     idx,
@@ -267,13 +271,7 @@ func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient,
 			}
 		}
 
-		err = uploadResultsToPSS(report, test, awsSecretKey, awsAccessKey, dryRun)
-		if err !=nil {
-			return errors.Wrapf(err, "submit results to PSS %d of %d", idx+1, len(tests))
-		}
-
-
-		if err = uploadTests(ctx, client, report, test.SubTests, awsSecretKey, awsAccessKey, dryRun); err != nil {
+		if err = uploadTests(ctx, client, report, test.SubTests, dryRun); err != nil {
 			return errors.Wrapf(err, "submitting subtests of '%s'", test.ID)
 		}
 
