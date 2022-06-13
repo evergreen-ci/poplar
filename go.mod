@@ -17,4 +17,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-require google.golang.org/protobuf v1.28.0
+require (
+	github.com/aws/aws-sdk-go v1.43.30
+	github.com/google/uuid v1.3.0
+	google.golang.org/protobuf v1.28.0
+)

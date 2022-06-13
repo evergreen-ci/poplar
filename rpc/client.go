@@ -4,7 +4,13 @@ import (
 	"context"
 	"runtime"
 	"sync"
-
+	"time"
+	"fmt"
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"io/ioutil"
+	"strconv"
 	"github.com/evergreen-ci/juniper/gopb"
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
@@ -13,20 +19,34 @@ import (
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
+	"github.com/aws/aws-sdk-go/aws/signer/v4"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/google/uuid"
+)
+
+const (
+	ResultsHandlerHost = "https://yv5aascdn3.execute-api.us-east-1.amazonaws.com/prod/v1/results"
 )
 
 type UploadReportOptions struct {
 	Report          *poplar.Report
 	ClientConn      *grpc.ClientConn
 	SerializeUpload bool
+	AWSSecretKey    string
+	AWSAccessKey    string
 	DryRun          bool
+}
+
+type SignedUrl struct {
+	Signed_Url string
+	Expiration_secs int
 }
 
 func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		return errors.Wrap(err, "uploading tests for report")
 	}
-	return errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun),
+	return errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.AWSSecretKey, opts.AWSAccessKey, opts.DryRun),
 		"uploading tests for report")
 }
 
@@ -87,10 +107,10 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 				return
 			}
 
-			if err := test.Artifacts[j].Convert(ctx); err != nil {
-				catcher.Wrap(err, "converting artifact")
-				continue
-			}
+			// if err := test.Artifacts[j].Convert(ctx); err != nil {
+			// 	catcher.Wrap(err, "converting artifact")
+			// 	continue
+			// }
 
 			if err := test.Artifacts[j].SetBucketInfo(opts.Report.BucketConf); err != nil {
 				catcher.Wrap(err, "setting bucket info")
@@ -104,12 +124,89 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 				"prefix": test.Artifacts[j].Prefix,
 				"file":   test.Artifacts[j].LocalFile,
 			})
-			catcher.Wrapf(test.Artifacts[j].Upload(ctx, opts.Report.BucketConf, opts.DryRun), "uploading artifact")
+			// catcher.Wrapf(test.Artifacts[j].Upload(ctx, opts.Report.BucketConf, opts.DryRun), "uploading artifact")
 		}
 	}
 }
 
-func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient, report *poplar.Report, tests []poplar.Test, dryRun bool) error {
+
+func getSignedURL(task string, execution int, awsRegion string, data []byte, awsSecretKey string, awsAccessKey string) (string, error) {
+	resultType := "cedar-report"
+	service := "execute-api"
+	if awsSecretKey == "" || awsAccessKey == "" {
+		return "", errors.New("Getting signed URL failed. AWS secret key or/and access key not specified")
+	}
+	client := &http.Client{}
+	name := uuid.New()
+	url := fmt.Sprintf("%s/evergreen/%s/%s/%s/%s", ResultsHandlerHost, task, strconv.Itoa(execution), resultType, name.String())
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(data))
+	if err != nil {
+			return "", err
+	}
+	aws_credentials := credentials.NewStaticCredentials(awsAccessKey, awsSecretKey, "")
+	signer := v4.NewSigner(aws_credentials)
+	_, err = signer.Sign(req, nil, service, awsRegion, time.Now())
+	response, err := client.Do(req)
+	if err != nil {
+			return "", err
+	}
+	body, error := ioutil.ReadAll(response.Body)
+	if error != nil {
+		 return "", err
+	}
+	// close response body
+	response.Body.Close()
+	var response_body SignedUrl
+	err = json.Unmarshal(body, &response_body)
+	if error != nil {
+		 return "", err
+	}
+	grip.Info(message.Fields{
+		"request_url": url,
+		"signed_url": response_body.Signed_Url,
+	})
+	return response_body.Signed_Url, nil
+}
+
+func uploadTestReport(signedUrl string, data []byte) error {
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, signedUrl, bytes.NewBuffer(data))
+	if err != nil {
+			return err
+	}
+	_, err = client.Do(req)
+	if err != nil {
+			return err
+	}
+	return nil
+}
+
+// uploadResults uploads cedar results to S3 bucket which triggers rollups in perf-summarizer-service(PSS)
+func uploadResultsToPSS(report *poplar.Report, test poplar.Test, awsSecretKey string, awsAccessKey string, dryRun bool,) error {
+	if !dryRun {
+		grip.Info(message.Fields{
+			"message":     "dry-run mode",
+			"function":    "uploadResultsToPSS",
+			"result_data": test,
+		})
+	} else {
+		jsonResp, err := json.Marshal(test)
+		if err != nil {
+				return err
+		}
+		signedUrl, err := getSignedURL(report.TaskName, report.Execution, report.BucketConf.Region, jsonResp, awsSecretKey, awsAccessKey)
+		if err != nil {
+				return err
+		}
+		err = uploadTestReport(signedUrl, jsonResp)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient, report *poplar.Report, tests []poplar.Test, awsSecretKey string, awsAccessKey string, dryRun bool) error {
 	for idx, test := range tests {
 		grip.Info(message.Fields{
 			"num":     idx,
@@ -170,7 +267,13 @@ func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient,
 			}
 		}
 
-		if err = uploadTests(ctx, client, report, test.SubTests, dryRun); err != nil {
+		err = uploadResultsToPSS(report, test, awsSecretKey, awsAccessKey, dryRun)
+		if err !=nil {
+			return errors.Wrapf(err, "submit results to PSS %d of %d", idx+1, len(tests))
+		}
+
+
+		if err = uploadTests(ctx, client, report, test.SubTests, awsSecretKey, awsAccessKey, dryRun); err != nil {
 			return errors.Wrapf(err, "submitting subtests of '%s'", test.ID)
 		}
 
@@ -195,7 +298,6 @@ func uploadTests(ctx context.Context, client gopb.CedarPerformanceMetricsClient,
 				return errors.New("operation return failed state")
 			}
 		}
-
 	}
 
 	return nil

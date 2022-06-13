@@ -50,16 +50,18 @@ func (mc *mockClient) CloseMetrics(_ context.Context, in *gopb.MetricsSeriesEnd,
 	return &gopb.MetricsResponse{Success: true}, nil
 }
 
-func mockUploadReport(ctx context.Context, report *poplar.Report, client gopb.CedarPerformanceMetricsClient, serialize, dryRun bool) error {
+func mockUploadReport(ctx context.Context, report *poplar.Report, client gopb.CedarPerformanceMetricsClient, serialize bool, awsSecretKey string, awsAccessKey string, dryRun bool) error {
 	opts := UploadReportOptions{
 		Report:          report,
 		SerializeUpload: serialize,
+		AWSSecretKey: awsSecretKey,
+		AWSAccessKey: awsAccessKey,
 		DryRun:          dryRun,
 	}
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		return errors.Wrap(err, "converting and uploading artifacts for report")
 	}
-	return errors.Wrap(uploadTests(ctx, client, report, report.Tests, dryRun), "uploading tests for report")
+	return errors.Wrap(uploadTests(ctx, client, report, report.Tests, awsSecretKey, awsAccessKey, dryRun), "uploading tests for report")
 }
 
 func TestClient(t *testing.T) {
@@ -74,6 +76,8 @@ func TestClient(t *testing.T) {
 		Prefix: s3Prefix,
 		Region: "us-east-1",
 	}
+	awsSecretKey := "fake-secret-key"
+	awsAccessKey := "fake-access-key"
 
 	client := utility.GetHTTPClient()
 	defer utility.PutHTTPClient(client)
@@ -115,7 +119,7 @@ func TestClient(t *testing.T) {
 		for _, serialize := range []bool{true, false} {
 			testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
 			mc := NewMockClient()
-			require.NoError(t, mockUploadReport(ctx, &testReport, mc, serialize, false))
+			require.NoError(t, mockUploadReport(ctx, &testReport, mc, serialize, awsSecretKey, awsAccessKey, false))
 			require.Len(t, mc.resultData, len(expectedTests))
 			require.Equal(t, len(mc.resultData), len(mc.endData))
 			for i, result := range mc.resultData {
@@ -180,7 +184,7 @@ func TestClient(t *testing.T) {
 		for _, serialize := range []bool{true, false} {
 			testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
 			mc := NewMockClient()
-			require.NoError(t, mockUploadReport(ctx, &testReport, mc, serialize, true))
+			require.NoError(t, mockUploadReport(ctx, &testReport, mc, serialize, awsSecretKey, awsAccessKey, true))
 			assert.Empty(t, mc.resultData)
 			assert.Empty(t, mc.endData)
 			for _, expectedTest := range expectedTests {
@@ -207,7 +211,7 @@ func TestClient(t *testing.T) {
 		for _, serialize := range []bool{true, false} {
 			testReport := generateTestReport(testdataDir, s3Name, s3Prefix, true)
 			mc := NewMockClient()
-			assert.Error(t, mockUploadReport(ctx, &testReport, mc, serialize, true))
+			assert.Error(t, mockUploadReport(ctx, &testReport, mc, serialize, awsSecretKey, awsAccessKey, true))
 			assert.Empty(t, mc.resultData)
 			assert.Empty(t, mc.endData)
 		}

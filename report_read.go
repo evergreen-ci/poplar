@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	yaml "gopkg.in/yaml.v2"
@@ -46,7 +45,6 @@ func LoadReport(fn string) (*Report, error) {
 	if out.BucketConf.APIToken == "" {
 		out.BucketConf.APIToken = os.Getenv(APITokenEnv)
 	}
-
 	return out, nil
 }
 
