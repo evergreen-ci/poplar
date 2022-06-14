@@ -61,7 +61,7 @@ func mockUploadReport(ctx context.Context, report *poplar.Report, client gopb.Ce
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		return errors.Wrap(err, "converting and uploading artifacts for report")
 	}
-	return errors.Wrap(uploadTests(ctx, client, report, report.Tests, awsSecretKey, awsAccessKey, dryRun), "uploading tests for report")
+	return errors.Wrap(uploadTests(ctx, client, report, report.Tests, dryRun), "uploading tests for report")
 }
 
 func TestClient(t *testing.T) {
