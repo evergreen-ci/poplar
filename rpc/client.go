@@ -1,27 +1,28 @@
 package rpc
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
-	"fmt"
-	"bytes"
-	"encoding/json"
-	"net/http"
-	"io/ioutil"
-	"strconv"
+
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 	"github.com/evergreen-ci/juniper/gopb"
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
+	"github.com/google/uuid"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
-	"github.com/aws/aws-sdk-go/aws/signer/v4"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/google/uuid"
 )
 
 type UploadReportOptions struct {
@@ -36,7 +37,7 @@ type UploadReportOptions struct {
 }
 
 type SignedUrl struct {
-	Signed_Url string
+	Signed_Url      string
 	Expiration_secs int
 }
 
@@ -46,11 +47,11 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	}
 	err := errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun), "uploading tests for report")
 	if err != nil {
-			return err
+		return err
 	}
 	err = errors.Wrap(uploadResultsToPSS(opts.Report, opts.AWSSecretKey, opts.AWSAccessKey, opts.ResultsHandlerHost, opts.ResultType, opts.DryRun), "uploading results to PSS")
 	if err != nil {
-			return err
+		return err
 	}
 	return nil
 }
@@ -134,10 +135,9 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 	}
 }
 
-
 func getSignedURL(task string, execution int, awsRegion string, data []byte, awsSecretKey string, awsAccessKey string, resultsHandlerHost string, resultType string) (string, error) {
 	service := "execute-api"
-	if awsSecretKey == "" || awsAccessKey == "" || resultsHandlerHost == "" || resultType == ""{
+	if awsSecretKey == "" || awsAccessKey == "" || resultsHandlerHost == "" || resultType == "" {
 		return "", errors.New("Getting signed URL failed. AWS secret key, AWS access key, resuls handler host and result type required.")
 	}
 	client := &http.Client{}
@@ -145,29 +145,32 @@ func getSignedURL(task string, execution int, awsRegion string, data []byte, aws
 	url := fmt.Sprintf("%s/evergreen/%s/%s/%s/%s", resultsHandlerHost, task, strconv.Itoa(execution), resultType, name.String())
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(data))
 	if err != nil {
-			return "", err
+		return "", err
 	}
 	aws_credentials := credentials.NewStaticCredentials(awsAccessKey, awsSecretKey, "")
 	signer := v4.NewSigner(aws_credentials)
 	_, err = signer.Sign(req, nil, service, awsRegion, time.Now())
+	if err != nil {
+		return "", err
+	}
 	response, err := client.Do(req)
 	if err != nil {
-			return "", err
+		return "", err
 	}
 	body, error := ioutil.ReadAll(response.Body)
 	if error != nil {
-		 return "", err
+		return "", err
 	}
 	// close response body
 	response.Body.Close()
 	var response_body SignedUrl
 	err = json.Unmarshal(body, &response_body)
 	if error != nil {
-		 return "", err
+		return "", err
 	}
 	grip.Info(message.Fields{
 		"request_url": url,
-		"signed_url": response_body.Signed_Url,
+		"signed_url":  response_body.Signed_Url,
 	})
 	return response_body.Signed_Url, nil
 }
@@ -176,17 +179,17 @@ func uploadTestReport(signedUrl string, data []byte) error {
 	client := &http.Client{}
 	req, err := http.NewRequest(http.MethodPut, signedUrl, bytes.NewBuffer(data))
 	if err != nil {
-			return err
+		return err
 	}
 	_, err = client.Do(req)
 	if err != nil {
-			return err
+		return err
 	}
 	return nil
 }
 
 // uploadResults uploads cedar results to S3 bucket which triggers rollups in perf-summarizer-service(PSS)
-func uploadResultsToPSS(report *poplar.Report, awsSecretKey string, awsAccessKey string, resultsHandlerHost string, resultType string, dryRun bool,) error {
+func uploadResultsToPSS(report *poplar.Report, awsSecretKey string, awsAccessKey string, resultsHandlerHost string, resultType string, dryRun bool) error {
 	if !dryRun {
 		grip.Info(message.Fields{
 			"message":     "dry-run mode",
@@ -196,11 +199,11 @@ func uploadResultsToPSS(report *poplar.Report, awsSecretKey string, awsAccessKey
 	} else {
 		jsonResp, err := json.Marshal(report)
 		if err != nil {
-				return err
+			return err
 		}
 		signedUrl, err := getSignedURL(report.TaskName, report.Execution, report.BucketConf.Region, jsonResp, awsSecretKey, awsAccessKey, resultsHandlerHost, resultType)
 		if err != nil {
-				return err
+			return err
 		}
 		err = uploadTestReport(signedUrl, jsonResp)
 		if err != nil {

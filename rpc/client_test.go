@@ -54,8 +54,8 @@ func mockUploadReport(ctx context.Context, report *poplar.Report, client gopb.Ce
 	opts := UploadReportOptions{
 		Report:          report,
 		SerializeUpload: serialize,
-		AWSSecretKey: awsSecretKey,
-		AWSAccessKey: awsAccessKey,
+		AWSSecretKey:    awsSecretKey,
+		AWSAccessKey:    awsAccessKey,
 		DryRun:          dryRun,
 	}
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
