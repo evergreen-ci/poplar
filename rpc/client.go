@@ -32,7 +32,6 @@ type UploadReportOptions struct {
 	AWSSecretKey       string
 	AWSAccessKey       string
 	ResultsHandlerHost string
-	ResultType         string
 	DryRun             bool
 }
 
@@ -42,18 +41,22 @@ type SignedUrl struct {
 }
 
 func UploadReport(ctx context.Context, opts UploadReportOptions) error {
+	var returnError error
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
-		return errors.Wrap(err, "uploading tests for report")
+		returnError = errors.Wrap(err, "uploading tests for report")
+	} else {
+		returnError = errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun), "uploading tests for report")
 	}
-	err := errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun), "uploading tests for report")
+	err := errors.Wrap(uploadResultsToPSS(opts.Report, opts.AWSSecretKey, opts.AWSAccessKey, opts.ResultsHandlerHost, opts.DryRun), "uploading results to PSS")
+	// uploadResultsToPSS will continue on error until development is complete
 	if err != nil {
-		return err
+		grip.Warning(message.Fields{
+			"op":     "uploadResultsToPSS",
+			"error":   err,
+		})
 	}
-	err = errors.Wrap(uploadResultsToPSS(opts.Report, opts.AWSSecretKey, opts.AWSAccessKey, opts.ResultsHandlerHost, opts.ResultType, opts.DryRun), "uploading results to PSS")
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return returnError
 }
 
 func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) error {
@@ -135,14 +138,18 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 	}
 }
 
-func getSignedURL(task string, execution int, awsRegion string, data []byte, awsSecretKey string, awsAccessKey string, resultsHandlerHost string, resultType string) (string, error) {
+func getSignedURL(task string, execution int, awsRegion string, data []byte, awsSecretKey string, awsAccessKey string, resultsHandlerHost string) (string, error) {
 	service := "execute-api"
+	resultType := "cedar-report"
 	if awsSecretKey == "" || awsAccessKey == "" || resultsHandlerHost == "" || resultType == "" {
 		return "", errors.New("Getting signed URL failed. AWS secret key, AWS access key, resuls handler host and result type required.")
 	}
 	client := &http.Client{}
 	name := uuid.New()
 	url := fmt.Sprintf("%s/evergreen/%s/%s/%s/%s", resultsHandlerHost, task, strconv.Itoa(execution), resultType, name.String())
+	grip.Info(message.Fields{
+		"request_url": url,
+	})
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(data))
 	if err != nil {
 		return "", err
@@ -169,7 +176,6 @@ func getSignedURL(task string, execution int, awsRegion string, data []byte, aws
 		return "", err
 	}
 	grip.Info(message.Fields{
-		"request_url": url,
 		"signed_url":  response_body.Signed_Url,
 	})
 	return response_body.Signed_Url, nil
@@ -181,16 +187,23 @@ func uploadTestReport(signedUrl string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	_, err = client.Do(req)
+	response, err := client.Do(req)
 	if err != nil {
 		return err
 	}
+	grip.Info(message.Fields{
+		"message" :    "Upload to PSS response",
+		"function":    "uploadTestReport",
+		"response":    response,
+	})
 	return nil
 }
 
 // uploadResults uploads cedar results to S3 bucket which triggers rollups in perf-summarizer-service(PSS)
-func uploadResultsToPSS(report *poplar.Report, awsSecretKey string, awsAccessKey string, resultsHandlerHost string, resultType string, dryRun bool) error {
-	if !dryRun {
+func uploadResultsToPSS(report *poplar.Report, awsSecretKey string, awsAccessKey string, resultsHandlerHost string, dryRun bool) error {
+	region := report.BucketConf.Region
+	report.BucketConf = poplar.BucketConfiguration{}
+	if dryRun {
 		grip.Info(message.Fields{
 			"message":     "dry-run mode",
 			"function":    "uploadResultsToPSS",
@@ -201,7 +214,7 @@ func uploadResultsToPSS(report *poplar.Report, awsSecretKey string, awsAccessKey
 		if err != nil {
 			return err
 		}
-		signedUrl, err := getSignedURL(report.TaskName, report.Execution, report.BucketConf.Region, jsonResp, awsSecretKey, awsAccessKey, resultsHandlerHost, resultType)
+		signedUrl, err := getSignedURL(report.TaskName, report.Execution, region, jsonResp, awsSecretKey, awsAccessKey, resultsHandlerHost)
 		if err != nil {
 			return err
 		}
