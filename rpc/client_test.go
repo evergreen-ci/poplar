@@ -120,14 +120,14 @@ func TestClient(t *testing.T) {
 		require.Error(t, uploadResultsToPSS(&testReport, awsSecretKey, awsAccessKey, "https://fakeurl.mock/path", false))
 		defer gock.Off()
 		gock.New("https://fakeurl.mock").
-	    Put("/path/*").
-	    Reply(200).
-	    JSON(	map[string]interface{}{"signed_Url": "https://fakeurl.mock/evergreen/taskName/2/mock_result_type/signed_string", "expiration_secs": 1800})
+			Put("/path/*").
+			Reply(200).
+			JSON(map[string]interface{}{"signed_Url": "https://fakeurl.mock/evergreen/taskName/2/mock_result_type/signed_string", "expiration_secs": 1800})
 
-			gock.New("https://fakeurl.mock").
-		    Put("/evergreen/*").
-		    Reply(200).
-		    JSON(	map[string]interface{}{})
+		gock.New("https://fakeurl.mock").
+			Put("/evergreen/*").
+			Reply(200).
+			JSON(map[string]interface{}{})
 		require.NoError(t, uploadResultsToPSS(&testReport, awsSecretKey, awsAccessKey, "https://fakeurl.mock/path", false))
 	})
 	t.Run("DryRunUploadtoPSS", func(t *testing.T) {

@@ -25,6 +25,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+// UploadReportOptions contains all the required options for uploading a report
+// to both Cedar and the S3 data-pipes service.
 type UploadReportOptions struct {
 	Report             *poplar.Report
 	ClientConn         *grpc.ClientConn
@@ -35,11 +37,17 @@ type UploadReportOptions struct {
 	DryRun             bool
 }
 
+// SignedUrl is a struct representing a signed url returned from the data pipes API.
 type SignedUrl struct {
-	Signed_Url      string
-	Expiration_secs int
+	SignedUrl      string `json:"signed_url"`
+	ExpirationSecs int    `json:"expiration_secs"`
 }
 
+// UploadReport does the following:
+// 1. Ingest the report.json.
+// 2. Send all artifact files to the user-specified buckets using user-specified keys.
+// 3. Send the metrics metadata and pre-calculated summaries to Cedar over gRPC using the Cedar creds.
+// 4. Send the metrics metadata and pre-calculated summaries to the data-pipes service using AWS keys.
 func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	var returnError error
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
@@ -51,8 +59,8 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	// uploadResultsToPSS will continue on error until development is complete
 	if err != nil {
 		grip.Warning(message.Fields{
-			"op":     "uploadResultsToPSS",
-			"error":   err,
+			"op":    "uploadResultsToPSS",
+			"error": err,
 		})
 	}
 
@@ -176,9 +184,9 @@ func getSignedURL(task string, execution int, awsRegion string, data []byte, aws
 		return "", err
 	}
 	grip.Info(message.Fields{
-		"signed_url":  response_body.Signed_Url,
+		"signed_url": response_body.SignedUrl,
 	})
-	return response_body.Signed_Url, nil
+	return response_body.SignedUrl, nil
 }
 
 func uploadTestReport(signedUrl string, data []byte) error {
@@ -192,9 +200,9 @@ func uploadTestReport(signedUrl string, data []byte) error {
 		return err
 	}
 	grip.Info(message.Fields{
-		"message" :    "Upload to PSS response",
-		"function":    "uploadTestReport",
-		"response":    response,
+		"message":  "Upload to PSS response",
+		"function": "uploadTestReport",
+		"response": response,
 	})
 	return nil
 }
