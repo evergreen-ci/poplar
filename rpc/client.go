@@ -147,10 +147,10 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 }
 
 // getSignedUrl calls the Data Pipes API to retrieve a signed URL, where it can PUT the report json.
-func getSignedURL(task string, execution int, awsRegion string, data []byte, awsSecretKey string, awsAccessKey string, resultsHandlerHost string) (string, error) {
+func getSignedURL(task string, execution int, AWSRegion string, data []byte, AWSSecretKey string, AWSAccessKey string, resultsHandlerHost string) (string, error) {
 	service := "execute-api"
 	resultType := "cedar-report"
-	if awsSecretKey == "" || awsAccessKey == "" || resultsHandlerHost == "" || resultType == "" {
+	if AWSSecretKey == "" || AWSAccessKey == "" || resultsHandlerHost == "" || resultType == "" {
 		return "", errors.New("Getting signed URL failed. AWS secret key, AWS access key, resuls handler host and result type required.")
 	}
 	client := &http.Client{}
@@ -163,9 +163,9 @@ func getSignedURL(task string, execution int, awsRegion string, data []byte, aws
 	if err != nil {
 		return "", err
 	}
-	awsCredentials := credentials.NewStaticCredentials(awsAccessKey, awsSecretKey, "")
-	signer := v4.NewSigner(awsCredentials)
-	_, err = signer.Sign(req, nil, service, awsRegion, time.Now())
+	AWSCredentials := credentials.NewStaticCredentials(AWSAccessKey, AWSSecretKey, "")
+	signer := v4.NewSigner(AWSCredentials)
+	_, err = signer.Sign(req, nil, service, AWSRegion, time.Now())
 	if err != nil {
 		return "", err
 	}
@@ -209,7 +209,7 @@ func uploadTestReport(signedUrl string, data []byte) error {
 }
 
 // uploadResultsToDataPipes uploads the report json to Data Pipes for further processing.
-func uploadResultsToDataPipes(report *poplar.Report, awsSecretKey string, awsAccessKey string, resultsHandlerHost string, dryRun bool) error {
+func uploadResultsToDataPipes(report *poplar.Report, AWSSecretKey string, AWSAccessKey string, resultsHandlerHost string, dryRun bool) error {
 	region := report.BucketConf.Region
 	report.BucketConf = poplar.BucketConfiguration{}
 	if dryRun {
@@ -223,7 +223,7 @@ func uploadResultsToDataPipes(report *poplar.Report, awsSecretKey string, awsAcc
 		if err != nil {
 			return err
 		}
-		signedUrl, err := getSignedURL(report.TaskName, report.Execution, region, jsonResp, awsSecretKey, awsAccessKey, resultsHandlerHost)
+		signedUrl, err := getSignedURL(report.TaskName, report.Execution, region, jsonResp, AWSSecretKey, AWSAccessKey, resultsHandlerHost)
 		if err != nil {
 			return err
 		}
