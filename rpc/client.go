@@ -55,11 +55,11 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	} else {
 		returnError = errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun), "uploading tests for report")
 	}
-	err := errors.Wrap(uploadResultsToPSS(opts.Report, opts.AWSSecretKey, opts.AWSAccessKey, opts.ResultsHandlerHost, opts.DryRun), "uploading results to PSS")
-	// uploadResultsToPSS will continue on error until development is complete
+	err := errors.Wrap(uploadResultsToDataPipes(opts.Report, opts.AWSSecretKey, opts.AWSAccessKey, opts.ResultsHandlerHost, opts.DryRun), "uploading results to DataPipes")
+	// Errors uploading to Data Pipes will be only be logged while Cedar is in use.
 	if err != nil {
 		grip.Warning(message.Fields{
-			"op":    "uploadResultsToPSS",
+			"op":    "uploadResultsToDataPipes",
 			"error": err,
 		})
 	}
@@ -146,6 +146,7 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 	}
 }
 
+// getSignedUrl calls the Data Pipes API to retrieve a signed URL, where it can PUT the report json.
 func getSignedURL(task string, execution int, awsRegion string, data []byte, awsSecretKey string, awsAccessKey string, resultsHandlerHost string) (string, error) {
 	service := "execute-api"
 	resultType := "cedar-report"
@@ -162,8 +163,8 @@ func getSignedURL(task string, execution int, awsRegion string, data []byte, aws
 	if err != nil {
 		return "", err
 	}
-	aws_credentials := credentials.NewStaticCredentials(awsAccessKey, awsSecretKey, "")
-	signer := v4.NewSigner(aws_credentials)
+	awsCredentials := credentials.NewStaticCredentials(awsAccessKey, awsSecretKey, "")
+	signer := v4.NewSigner(awsCredentials)
 	_, err = signer.Sign(req, nil, service, awsRegion, time.Now())
 	if err != nil {
 		return "", err
@@ -178,15 +179,15 @@ func getSignedURL(task string, execution int, awsRegion string, data []byte, aws
 	}
 	// close response body
 	response.Body.Close()
-	var response_body SignedUrl
-	err = json.Unmarshal(body, &response_body)
+	var responseBody SignedUrl
+	err = json.Unmarshal(body, &responseBody)
 	if error != nil {
 		return "", err
 	}
 	grip.Info(message.Fields{
-		"signed_url": response_body.SignedUrl,
+		"signed_url": responseBody.SignedUrl,
 	})
-	return response_body.SignedUrl, nil
+	return responseBody.SignedUrl, nil
 }
 
 func uploadTestReport(signedUrl string, data []byte) error {
@@ -200,21 +201,21 @@ func uploadTestReport(signedUrl string, data []byte) error {
 		return err
 	}
 	grip.Info(message.Fields{
-		"message":  "Upload to PSS response",
+		"message":  "Upload to Data Pipes response",
 		"function": "uploadTestReport",
 		"response": response,
 	})
 	return nil
 }
 
-// uploadResults uploads cedar results to S3 bucket which triggers rollups in perf-summarizer-service(PSS)
-func uploadResultsToPSS(report *poplar.Report, awsSecretKey string, awsAccessKey string, resultsHandlerHost string, dryRun bool) error {
+// uploadResultsToDataPipes uploads the report json to Data Pipes for further processing.
+func uploadResultsToDataPipes(report *poplar.Report, awsSecretKey string, awsAccessKey string, resultsHandlerHost string, dryRun bool) error {
 	region := report.BucketConf.Region
 	report.BucketConf = poplar.BucketConfiguration{}
 	if dryRun {
 		grip.Info(message.Fields{
 			"message":     "dry-run mode",
-			"function":    "uploadResultsToPSS",
+			"function":    "uploadResultsToDataPipes",
 			"result_data": report,
 		})
 	} else {
