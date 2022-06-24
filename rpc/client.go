@@ -52,11 +52,11 @@ type SignedUrl struct {
 // 4. Send the metrics metadata and pre-calculated summaries to the data-pipes service using AWS keys.
 func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	var returnError error
-	/*if err := opts.convertAndUploadArtifacts(ctx); err != nil {
+	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		returnError = errors.Wrap(err, "uploading tests for report")
 	} else {
 		returnError = errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun), "uploading tests for report")
-	}*/
+	}
 	err := errors.Wrap(uploadResultsToDataPipes(opts.Report, opts.AWSAccessKey, opts.AWSSecretKey, opts.AWSToken, opts.DataPipesHost, opts.DataPipesRegion, opts.DryRun), "uploading results to DataPipes")
 	// Errors uploading to Data Pipes will be only be logged while Cedar is in use.
 	if err != nil {
