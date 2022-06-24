@@ -5,17 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"runtime"
 	"strconv"
 	"sync"
+	"time"
 
-    "github.com/aws/aws-sdk-go/aws" 
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/metadata"
-	"github.com/aws/aws-sdk-go/aws/defaults"
+	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 	"github.com/evergreen-ci/juniper/gopb"
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
@@ -152,29 +150,46 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 // getSignedUrl calls the Data Pipes API to retrieve a signed URL, where it can PUT the report json.
 // Data Pipes docs: https://github.com/10gen/data-pipes
 func getSignedURL(task string, execution int, AWSRegion string, data []byte, AWSAccessKey string, AWSSecretKey string, AWSToken string, resultsHandlerHost string) (string, error) {
-	if AWSAccessKey == "" || AWSSecretKey == "" || resultsHandlerHost == "" {
+	service := "execute-api"
+	resultType := "cedar-report"
+	if AWSAccessKey == "" || AWSSecretKey == "" || resultsHandlerHost == "" || resultType == "" {
 		return "", errors.New("Getting signed URL failed. AWS access key, AWS secret key, results handler host and result type required.")
 	}
-	resultType := "cedar-report"
+	client := &http.Client{}
 	name := uuid.New()
-    operation := request.Operation{}
-    operation.Name = "execute-api"
-    operation.HTTPMethod = "PUT"
-    operation.HTTPPath = fmt.Sprintf("%s/evergreen/%s/%s/%s/%s", resultsHandlerHost, task, strconv.Itoa(execution), resultType, name.String())
+	url := fmt.Sprintf("%s/evergreen/%s/%s/%s/%s", resultsHandlerHost, task, strconv.Itoa(execution), resultType, name.String())
 	grip.Debug(message.Fields{
-		"request_url": operation.HTTPPath,
+		"request_url": url,
 	})
-
-    clientConfig := aws.NewConfig()
-    clientConfig.Credentials = credentials.NewStaticCredentials(AWSAccessKey, AWSSecretKey, AWSToken)
-    
-    response := SignedUrl{}
-    request := request.New(*clientConfig, metadata.ClientInfo, defaults.Get().Handlers, client.DefaultRetryer{}, &operation, nil, response)
-    err := request.Send()
-    if err != nil {
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(data))
+	if err != nil {
 		return "", err
 	}
-	return response.SignedUrl, nil
+	AWSCredentials := credentials.NewStaticCredentials(AWSAccessKey, AWSSecretKey, AWSToken)
+	signer := v4.NewSigner(AWSCredentials)
+	_, err = signer.Sign(req, nil, service, AWSRegion, time.Now())
+	if err != nil {
+		return "", err
+	}
+	response, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	body, error := ioutil.ReadAll(response.Body)
+	if error != nil {
+		return "", err
+	}
+	// close response body
+	response.Body.Close()
+	var responseBody SignedUrl
+	err = json.Unmarshal(body, &responseBody)
+	if error != nil {
+		return "", err
+	}
+	grip.Info(message.Fields{
+		"signed_url": responseBody.SignedUrl,
+	})
+	return responseBody.SignedUrl, nil
 }
 
 func uploadTestReport(signedUrl string, data []byte) error {
