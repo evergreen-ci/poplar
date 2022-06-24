@@ -119,7 +119,7 @@ func TestClient(t *testing.T) {
 	}()
 	t.Run("WetRunUploadToDataPipes", func(t *testing.T) {
 		testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
-		require.Error(t, uploadResultsToDataPipes(&testReport, AWSAccessKey, AWSSecretKey, AWSToken, "https://fakeurl.mock/path", false))
+		require.Error(t, uploadResultsToDataPipes(&testReport, AWSAccessKey, AWSSecretKey, AWSToken, "https://fakeurl.mock/path", "fake-region", false))
 		defer gock.Off()
 		gock.New("https://fakeurl.mock").
 			Put("/path/*").
@@ -130,11 +130,11 @@ func TestClient(t *testing.T) {
 			Put("/evergreen/*").
 			Reply(200).
 			JSON(map[string]interface{}{})
-		require.NoError(t, uploadResultsToDataPipes(&testReport, AWSAccessKey, AWSSecretKey, AWSToken, "https://fakeurl.mock/path", false))
+		require.NoError(t, uploadResultsToDataPipes(&testReport, AWSAccessKey, AWSSecretKey, AWSToken, "https://fakeurl.mock/path", "fake-region", false))
 	})
 	t.Run("DryRunUploadtoDataPipes", func(t *testing.T) {
 		testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
-		require.NoError(t, uploadResultsToDataPipes(&testReport, AWSAccessKey, AWSSecretKey, AWSToken, "https://fakeurl.mock/path", true))
+		require.NoError(t, uploadResultsToDataPipes(&testReport, AWSAccessKey, AWSSecretKey, AWSToken, "https://fakeurl.mock/path", "fake-region", true))
 	})
 	t.Run("WetRun", func(t *testing.T) {
 		for _, serialize := range []bool{true, false} {

@@ -28,14 +28,15 @@ import (
 // UploadReportOptions contains all the required options for uploading a report
 // to both Cedar and the S3 data-pipes service.
 type UploadReportOptions struct {
-	Report             *poplar.Report
-	ClientConn         *grpc.ClientConn
-	SerializeUpload    bool
-	AWSAccessKey       string
-	AWSSecretKey       string
-	AWSToken           string
-	ResultsHandlerHost string
-	DryRun             bool
+	Report          *poplar.Report
+	ClientConn      *grpc.ClientConn
+	SerializeUpload bool
+	AWSAccessKey    string
+	AWSSecretKey    string
+	AWSToken        string
+	DataPipesHost   string
+	DataPipesRegion string
+	DryRun          bool
 }
 
 // SignedUrl is a struct representing a signed url returned from the data pipes API.
@@ -51,12 +52,12 @@ type SignedUrl struct {
 // 4. Send the metrics metadata and pre-calculated summaries to the data-pipes service using AWS keys.
 func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	var returnError error
-	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
+	/*if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		returnError = errors.Wrap(err, "uploading tests for report")
 	} else {
 		returnError = errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun), "uploading tests for report")
-	}
-	err := errors.Wrap(uploadResultsToDataPipes(opts.Report, opts.AWSAccessKey, opts.AWSSecretKey, opts.AWSToken, opts.ResultsHandlerHost, opts.DryRun), "uploading results to DataPipes")
+	}*/
+	err := errors.Wrap(uploadResultsToDataPipes(opts.Report, opts.AWSAccessKey, opts.AWSSecretKey, opts.AWSToken, opts.DataPipesHost, opts.DataPipesRegion, opts.DryRun), "uploading results to DataPipes")
 	// Errors uploading to Data Pipes will be only be logged while Cedar is in use.
 	if err != nil {
 		grip.Warning(message.Fields{
@@ -149,43 +150,53 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 
 // getSignedUrl calls the Data Pipes API to retrieve a signed URL, where it can PUT the report json.
 // Data Pipes docs: https://github.com/10gen/data-pipes
-func getSignedURL(task string, execution int, AWSRegion string, data []byte, AWSAccessKey string, AWSSecretKey string, AWSToken string, resultsHandlerHost string) (string, error) {
+func getSignedURL(task string, execution int, data []byte, AWSAccessKey string, AWSSecretKey string, AWSToken string, dataPipesHost string, dataPipesRegion string) (string, error) {
 	service := "execute-api"
 	resultType := "cedar-report"
-	if AWSAccessKey == "" || AWSSecretKey == "" || resultsHandlerHost == "" || resultType == "" {
-		return "", errors.New("Getting signed URL failed. AWS access key, AWS secret key, results handler host and result type required.")
+	if AWSAccessKey == "" || AWSSecretKey == "" || dataPipesHost == "" || dataPipesRegion == "" {
+		return "", errors.New("Getting signed URL failed. AWS access key, AWS secret key, data pipes host and data pipes region required.")
 	}
 	client := &http.Client{}
+
+	// The one and only requirement of names is that they are unique. See the data pipes
+	// API linked above.
 	name := uuid.New()
-	url := fmt.Sprintf("%s/evergreen/%s/%s/%s/%s", resultsHandlerHost, task, strconv.Itoa(execution), resultType, name.String())
-	grip.Debug(message.Fields{
+	url := fmt.Sprintf("%s/v1/results/evergreen/%s/%s/%s/%s", dataPipesHost, task, strconv.Itoa(execution), resultType, name.String())
+	grip.Info(message.Fields{
 		"request_url": url,
 	})
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(data))
 	if err != nil {
 		return "", err
 	}
+
 	AWSCredentials := credentials.NewStaticCredentials(AWSAccessKey, AWSSecretKey, AWSToken)
 	signer := v4.NewSigner(AWSCredentials)
-	_, err = signer.Sign(req, nil, service, AWSRegion, time.Now())
+	_, err = signer.Sign(req, nil, service, dataPipesRegion, time.Now())
 	if err != nil {
 		return "", err
 	}
+
 	response, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
+
+	defer response.Body.Close()
 	body, error := ioutil.ReadAll(response.Body)
 	if error != nil {
 		return "", err
 	}
-	// close response body
-	response.Body.Close()
+	grip.Info(message.Fields{
+		"response body": string(body),
+	})
+
 	var responseBody SignedUrl
 	err = json.Unmarshal(body, &responseBody)
 	if error != nil {
 		return "", err
 	}
+
 	grip.Info(message.Fields{
 		"signed_url": responseBody.SignedUrl,
 	})
@@ -211,8 +222,9 @@ func uploadTestReport(signedUrl string, data []byte) error {
 }
 
 // uploadResultsToDataPipes uploads the report json to Data Pipes for further processing.
-func uploadResultsToDataPipes(report *poplar.Report, AWSAccessKey string, AWSSecretKey string, AWSToken string, resultsHandlerHost string, dryRun bool) error {
-	region := report.BucketConf.Region
+func uploadResultsToDataPipes(report *poplar.Report, AWSAccessKey string, AWSSecretKey string, AWSToken string, dataPipesHost string, dataPipesRegion string, dryRun bool) error {
+	// The bucket configuration contains user's sensitive information that the data pipes
+	// and processors don't need, so we redact it.
 	report.BucketConf = poplar.BucketConfiguration{}
 	if dryRun {
 		grip.Info(message.Fields{
@@ -226,11 +238,12 @@ func uploadResultsToDataPipes(report *poplar.Report, AWSAccessKey string, AWSSec
 	if err != nil {
 		return err
 	}
-	signedUrl, err := getSignedURL(report.TaskName, report.Execution, region, jsonResp, AWSAccessKey, AWSSecretKey, AWSToken, resultsHandlerHost)
+	//signedUrl,
+	_, err = getSignedURL(report.TaskName, report.Execution, jsonResp, AWSAccessKey, AWSSecretKey, AWSToken, dataPipesHost, dataPipesRegion)
 	if err != nil {
 		return err
 	}
-	err = uploadTestReport(signedUrl, jsonResp)
+	//err = uploadTestReport(signedUrl, jsonResp)
 	if err != nil {
 		return err
 	}
