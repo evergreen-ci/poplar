@@ -162,7 +162,7 @@ func getSignedURL(task string, execution int, data []byte, AWSAccessKey string, 
 	// API linked above.
 	name := uuid.New()
 	url := fmt.Sprintf("%s/v1/results/evergreen/%s/%s/%s/%s", dataPipesHost, task, strconv.Itoa(execution), resultType, name.String())
-	grip.Info(message.Fields{
+	grip.Debug(message.Fields{
 		"request_url": url,
 	})
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(data))
@@ -187,9 +187,6 @@ func getSignedURL(task string, execution int, data []byte, AWSAccessKey string, 
 	if error != nil {
 		return "", err
 	}
-	grip.Info(message.Fields{
-		"response body": string(body),
-	})
 
 	var responseBody SignedUrl
 	err = json.Unmarshal(body, &responseBody)
@@ -197,7 +194,7 @@ func getSignedURL(task string, execution int, data []byte, AWSAccessKey string, 
 		return "", err
 	}
 
-	grip.Info(message.Fields{
+	grip.Debug(message.Fields{
 		"signed_url": responseBody.SignedUrl,
 	})
 	return responseBody.SignedUrl, nil
@@ -214,7 +211,7 @@ func uploadTestReport(signedUrl string, data []byte) error {
 		return err
 	}
 
-	grip.Info(message.Fields{
+	grip.Debug(message.Fields{
 		"message":  "Upload to Data Pipes response",
 		"function": "uploadTestReport",
 		"response": response,
