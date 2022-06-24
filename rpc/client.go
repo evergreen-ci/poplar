@@ -213,11 +213,13 @@ func uploadTestReport(signedUrl string, data []byte) error {
 	if err != nil {
 		return err
 	}
+
 	grip.Info(message.Fields{
 		"message":  "Upload to Data Pipes response",
 		"function": "uploadTestReport",
 		"response": response,
 	})
+
 	return nil
 }
 
@@ -238,12 +240,11 @@ func uploadResultsToDataPipes(report *poplar.Report, AWSAccessKey string, AWSSec
 	if err != nil {
 		return err
 	}
-	//signedUrl,
-	_, err = getSignedURL(report.TaskName, report.Execution, jsonResp, AWSAccessKey, AWSSecretKey, AWSToken, dataPipesHost, dataPipesRegion)
+	signedUrl, err := getSignedURL(report.TaskName, report.Execution, jsonResp, AWSAccessKey, AWSSecretKey, AWSToken, dataPipesHost, dataPipesRegion)
 	if err != nil {
 		return err
 	}
-	//err = uploadTestReport(signedUrl, jsonResp)
+	err = uploadTestReport(signedUrl, jsonResp)
 	if err != nil {
 		return err
 	}
