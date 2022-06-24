@@ -220,19 +220,19 @@ func uploadResultsToDataPipes(report *poplar.Report, AWSAccessKey string, AWSSec
 			"function":    "uploadResultsToDataPipes",
 			"result_data": report,
 		})
-	} else {
-		jsonResp, err := json.Marshal(report)
-		if err != nil {
-			return err
-		}
-		signedUrl, err := getSignedURL(report.TaskName, report.Execution, region, jsonResp, AWSAccessKey, AWSSecretKey, AWSToken, resultsHandlerHost)
-		if err != nil {
-			return err
-		}
-		err = uploadTestReport(signedUrl, jsonResp)
-		if err != nil {
-			return err
-		}
+		return nil
+	}
+	jsonResp, err := json.Marshal(report)
+	if err != nil {
+		return err
+	}
+	signedUrl, err := getSignedURL(report.TaskName, report.Execution, region, jsonResp, AWSAccessKey, AWSSecretKey, AWSToken, resultsHandlerHost)
+	if err != nil {
+		return err
+	}
+	err = uploadTestReport(signedUrl, jsonResp)
+	if err != nil {
+		return err
 	}
 	return nil
 }
