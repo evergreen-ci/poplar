@@ -10,12 +10,12 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/client/metadata"
+    "github.com/aws/aws-sdk-go/aws" 
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/metadata"
+	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/evergreen-ci/juniper/gopb"
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
@@ -157,21 +157,21 @@ func getSignedURL(task string, execution int, AWSRegion string, data []byte, AWS
 	}
 	resultType := "cedar-report"
 	name := uuid.New()
-	operation := request.Operation{}
-	operation.Name = "execute-api"
-	operation.HTTPMethod = "PUT"
-	operation.HTTPPath = fmt.Sprintf("%s/evergreen/%s/%s/%s/%s", resultsHandlerHost, task, strconv.Itoa(execution), resultType, name.String())
+    operation := request.Operation{}
+    operation.Name = "execute-api"
+    operation.HTTPMethod = "PUT"
+    operation.HTTPPath = fmt.Sprintf("%s/evergreen/%s/%s/%s/%s", resultsHandlerHost, task, strconv.Itoa(execution), resultType, name.String())
 	grip.Debug(message.Fields{
 		"request_url": operation.HTTPPath,
 	})
 
-	clientConfig := aws.NewConfig()
-	clientConfig.Credentials = credentials.NewStaticCredentials(AWSAccessKey, AWSSecretKey, AWSToken)
-
-	response := SignedUrl{}
-	request := request.New(*clientConfig, metadata.ClientInfo{}, defaults.Get().Handlers, client.DefaultRetryer{}, &operation, nil, response)
-	err := request.Send()
-	if err != nil {
+    clientConfig := aws.NewConfig()
+    clientConfig.Credentials = credentials.NewStaticCredentials(AWSAccessKey, AWSSecretKey, AWSToken)
+    
+    response := SignedUrl{}
+    request := request.New(*clientConfig, metadata.ClientInfo, defaults.Get().Handlers, client.DefaultRetryer{}, &operation, nil, response)
+    err := request.Send()
+    if err != nil {
 		return "", err
 	}
 	return response.SignedUrl, nil
