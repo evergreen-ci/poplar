@@ -51,12 +51,13 @@ func (mc *mockClient) CloseMetrics(_ context.Context, in *gopb.MetricsSeriesEnd,
 	return &gopb.MetricsResponse{Success: true}, nil
 }
 
-func mockUploadReport(ctx context.Context, report *poplar.Report, client gopb.CedarPerformanceMetricsClient, serialize bool, awsSecretKey string, awsAccessKey string, dryRun bool) error {
+func mockUploadReport(ctx context.Context, report *poplar.Report, client gopb.CedarPerformanceMetricsClient, serialize bool, AWSAccessKey string, AWSSecretKey string, AWSToken string, dryRun bool) error {
 	opts := UploadReportOptions{
 		Report:          report,
 		SerializeUpload: serialize,
-		AWSSecretKey:    awsSecretKey,
-		AWSAccessKey:    awsAccessKey,
+		AWSAccessKey:    AWSAccessKey,
+		AWSSecretKey:    AWSSecretKey,
+		AWSToken:        AWSToken,
 		DryRun:          dryRun,
 	}
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
@@ -77,8 +78,9 @@ func TestClient(t *testing.T) {
 		Prefix: s3Prefix,
 		Region: "us-east-1",
 	}
-	awsSecretKey := "fake-secret-key"
-	awsAccessKey := "fake-access-key"
+	AWSAccessKey := "fake-access-key"
+	AWSSecretKey := "fake-secret-key"
+	AWSToken := "fake-aws-token"
 
 	client := utility.GetHTTPClient()
 	defer utility.PutHTTPClient(client)
@@ -117,7 +119,7 @@ func TestClient(t *testing.T) {
 	}()
 	t.Run("WetRunUploadToDataPipes", func(t *testing.T) {
 		testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
-		require.Error(t, uploadResultsToDataPipes(&testReport, awsSecretKey, awsAccessKey, "https://fakeurl.mock/path", false))
+		require.Error(t, uploadResultsToDataPipes(&testReport, AWSAccessKey, AWSSecretKey, AWSToken, "https://fakeurl.mock/path", false))
 		defer gock.Off()
 		gock.New("https://fakeurl.mock").
 			Put("/path/*").
@@ -128,17 +130,17 @@ func TestClient(t *testing.T) {
 			Put("/evergreen/*").
 			Reply(200).
 			JSON(map[string]interface{}{})
-		require.NoError(t, uploadResultsToDataPipes(&testReport, awsSecretKey, awsAccessKey, "https://fakeurl.mock/path", false))
+		require.NoError(t, uploadResultsToDataPipes(&testReport, AWSAccessKey, AWSSecretKey, AWSToken, "https://fakeurl.mock/path", false))
 	})
 	t.Run("DryRunUploadtoDataPipes", func(t *testing.T) {
 		testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
-		require.NoError(t, uploadResultsToDataPipes(&testReport, awsSecretKey, awsAccessKey, "https://fakeurl.mock/path", true))
+		require.NoError(t, uploadResultsToDataPipes(&testReport, AWSAccessKey, AWSSecretKey, AWSToken, "https://fakeurl.mock/path", true))
 	})
 	t.Run("WetRun", func(t *testing.T) {
 		for _, serialize := range []bool{true, false} {
 			testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
 			mc := NewMockClient()
-			require.NoError(t, mockUploadReport(ctx, &testReport, mc, serialize, awsSecretKey, awsAccessKey, false))
+			require.NoError(t, mockUploadReport(ctx, &testReport, mc, serialize, AWSAccessKey, AWSSecretKey, AWSToken, false))
 			require.Len(t, mc.resultData, len(expectedTests))
 			require.Equal(t, len(mc.resultData), len(mc.endData))
 			for i, result := range mc.resultData {
@@ -203,7 +205,7 @@ func TestClient(t *testing.T) {
 		for _, serialize := range []bool{true, false} {
 			testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
 			mc := NewMockClient()
-			require.NoError(t, mockUploadReport(ctx, &testReport, mc, serialize, awsSecretKey, awsAccessKey, true))
+			require.NoError(t, mockUploadReport(ctx, &testReport, mc, serialize, AWSAccessKey, AWSSecretKey, AWSToken, true))
 			assert.Empty(t, mc.resultData)
 			assert.Empty(t, mc.endData)
 			for _, expectedTest := range expectedTests {
@@ -230,7 +232,7 @@ func TestClient(t *testing.T) {
 		for _, serialize := range []bool{true, false} {
 			testReport := generateTestReport(testdataDir, s3Name, s3Prefix, true)
 			mc := NewMockClient()
-			assert.Error(t, mockUploadReport(ctx, &testReport, mc, serialize, awsSecretKey, awsAccessKey, true))
+			assert.Error(t, mockUploadReport(ctx, &testReport, mc, serialize, AWSAccessKey, AWSSecretKey, AWSToken, true))
 			assert.Empty(t, mc.resultData)
 			assert.Empty(t, mc.endData)
 		}
