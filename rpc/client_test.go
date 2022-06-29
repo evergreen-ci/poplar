@@ -267,6 +267,7 @@ func generateTestReport(testdataDir, s3Name, s3Prefix string, duplicateMetric bo
 		TaskID:    "taskID",
 		Mainline:  true,
 		Execution: 2,
+		Requester: "RepotrackerVersionRequester",
 
 		BucketConf: poplar.BucketConfiguration{
 			Name:   s3Name,
