@@ -125,8 +125,8 @@ func TestClient(t *testing.T) {
 			AWSAccessKey:    AWSAccessKey,
 			AWSSecretKey:    AWSSecretKey,
 			AWSToken:        AWSToken,
-            DataPipesHost:   "https://fakeurl.mock"
-            DataPipesRegion: "fake-region"
+			DataPipesHost:   "https://fakeurl.mock",
+			DataPipesRegion: "fake-region",
 			DryRun:          false,
 		}
 		require.Error(t, uploadResultsToDataPipes(&opts))
