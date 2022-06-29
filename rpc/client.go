@@ -17,7 +17,6 @@ import (
 	"github.com/evergreen-ci/juniper/gopb"
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
-	"github.com/evergreen-ci/utility"
 	"github.com/google/uuid"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -29,15 +28,16 @@ import (
 // UploadReportOptions contains all the required options for uploading a report
 // to both Cedar and the Data Pipes service.
 type UploadReportOptions struct {
-	Report          *poplar.Report
-	ClientConn      *grpc.ClientConn
-	SerializeUpload bool
-	AWSAccessKey    string
-	AWSSecretKey    string
-	AWSToken        string
-	DataPipesHost   string
-	DataPipesRegion string
-	DryRun          bool
+	Report              *poplar.Report
+	ClientConn          *grpc.ClientConn
+	SerializeUpload     bool
+	AWSAccessKey        string
+	AWSSecretKey        string
+	AWSToken            string
+	DataPipesHost       string
+	DataPipesRegion     string
+	DataPipesHTTPClient *http.Client
+	DryRun              bool
 }
 
 // SignedURL is a struct representing a signed url returned from the data pipes API.
@@ -176,8 +176,6 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	if opts.AWSAccessKey == "" || opts.AWSSecretKey == "" || opts.DataPipesHost == "" || opts.DataPipesRegion == "" {
 		return "", errors.New("Getting signed URL failed. AWS access key, AWS secret key, data pipes host and data pipes region required.")
 	}
-	client := utility.GetHTTPClient()
-	defer utility.PutHTTPClient(client)
 
 	// See the Data Pipes documentation for more information.
 	name := uuid.New()
@@ -198,7 +196,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 		return "", err
 	}
 
-	response, err := client.Do(req)
+	response, err := opts.DataPipesHTTPClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -221,8 +219,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	return responseBody.URL, nil
 }
 
-func uploadTestReport(signedURL string, data []byte) error {
-	client := &http.Client{}
+func uploadTestReport(signedURL string, data []byte, client *http.Client) error {
 	req, err := http.NewRequest(http.MethodPut, signedURL, bytes.NewBuffer(data))
 	if err != nil {
 		return err
@@ -262,7 +259,7 @@ func uploadResultsToDataPipes(opts *UploadReportOptions) error {
 	if err != nil {
 		return err
 	}
-	err = uploadTestReport(signedURL, jsonResp)
+	err = uploadTestReport(signedURL, jsonResp, opts.DataPipesHTTPClient)
 	if err != nil {
 		return err
 	}

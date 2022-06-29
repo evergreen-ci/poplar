@@ -119,18 +119,22 @@ func TestClient(t *testing.T) {
 	}()
 	t.Run("WetRunUploadToDataPipes", func(t *testing.T) {
 		testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
+		client := utility.GetHTTPClient()
+		defer utility.PutHTTPClient(client)
 		opts := UploadReportOptions{
-			Report:          &testReport,
-			SerializeUpload: false,
-			AWSAccessKey:    AWSAccessKey,
-			AWSSecretKey:    AWSSecretKey,
-			AWSToken:        AWSToken,
-			DataPipesHost:   "https://fakeurl.mock",
-			DataPipesRegion: "fake-region",
-			DryRun:          false,
+			Report:              &testReport,
+			SerializeUpload:     false,
+			AWSAccessKey:        AWSAccessKey,
+			AWSSecretKey:        AWSSecretKey,
+			AWSToken:            AWSToken,
+			DataPipesHost:       "https://fakeurl.mock",
+			DataPipesRegion:     "fake-region",
+			DataPipesHTTPClient: client,
+			DryRun:              false,
 		}
 		require.Error(t, uploadResultsToDataPipes(&opts))
 		defer gock.Off()
+		defer gock.RestoreClient(client)
 
 		gock.New("https://fakeurl.mock").
 			Put("/results/evergreen/taskID/2/cedar-report/*").
