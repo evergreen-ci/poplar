@@ -132,12 +132,12 @@ func TestClient(t *testing.T) {
 		require.Error(t, uploadResultsToDataPipes(&opts))
 		defer gock.Off()
 		gock.New("https://fakeurl.mock").
-			Put("/path/*").
+			Put("/results/evergreen/taskID/2/cedar-report/*").
 			Reply(200).
-			JSON(map[string]interface{}{"signed_Url": "https://fakeurl.mock/evergreen/taskID/2/mock_result_type/signed_string", "expiration_secs": 1800})
+			JSON(map[string]interface{}{"signed_Url": "https://s3-bucket-location.mock/signed_string", "expiration_secs": 1800})
 
-		gock.New("https://fakeurl.mock").
-			Put("/evergreen/*").
+		gock.New("https://s3-bucket-location.mock").
+			Put("/signed_string").
 			Reply(200).
 			JSON(map[string]interface{}{})
 		require.NoError(t, uploadResultsToDataPipes(&opts))
