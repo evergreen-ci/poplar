@@ -55,7 +55,7 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 
 	// Errors uploading to Data Pipes will be only be logged while Cedar is in use.
 	defer func() {
-		if err := opts.validate(); err != nil {
+		if err := errors.Wrap(opts.validate(), "validating options"); err != nil {
 			grip.Warning(message.Fields{
 				"op":    "validate options",
 				"error": err,
@@ -198,7 +198,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 
 	response, err := opts.DataPipesHTTPClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed getting signed url")
 	}
 
 	defer response.Body.Close()
@@ -210,7 +210,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	var responseBody SignedURL
 	err = json.Unmarshal(body, &responseBody)
 	if error != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed parsing signed url response")
 	}
 
 	grip.Debug(message.Fields{
@@ -226,7 +226,7 @@ func uploadTestReport(signedURL string, data []byte, client *http.Client) error 
 	}
 	response, err := client.Do(req)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed report upload to given signed url")
 	}
 
 	grip.Debug(message.Fields{
