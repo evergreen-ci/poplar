@@ -131,6 +131,7 @@ func TestClient(t *testing.T) {
 		}
 		require.Error(t, uploadResultsToDataPipes(&opts))
 		defer gock.Off()
+
 		gock.New("https://fakeurl.mock").
 			Put("/results/evergreen/taskID/2/cedar-report/*").
 			Reply(200).
