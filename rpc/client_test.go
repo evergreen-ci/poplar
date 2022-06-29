@@ -132,7 +132,7 @@ func TestClient(t *testing.T) {
 		gock.New("https://fakeurl.mock").
 			Put("/path/*").
 			Reply(200).
-			JSON(map[string]interface{}{"signed_Url": "https://fakeurl.mock/evergreen/taskName/2/mock_result_type/signed_string", "expiration_secs": 1800})
+			JSON(map[string]interface{}{"signed_Url": "https://fakeurl.mock/evergreen/taskID/2/mock_result_type/signed_string", "expiration_secs": 1800})
 
 		gock.New("https://fakeurl.mock").
 			Put("/evergreen/*").
