@@ -17,6 +17,7 @@ import (
 	"github.com/evergreen-ci/juniper/gopb"
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
+	"github.com/evergreen-ci/utility"
 	"github.com/google/uuid"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -51,22 +52,30 @@ type SignedURL struct {
 // 3. Send the metrics metadata and pre-calculated summaries to Cedar over gRPC using the Cedar creds.
 // 4. Send the metrics metadata and pre-calculated summaries to the Data Pipes service using AWS keys.
 func UploadReport(ctx context.Context, opts UploadReportOptions) error {
-	var returnError error
-	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
-		returnError = errors.Wrap(err, "uploading tests for report")
-	} else {
-		returnError = errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun), "uploading tests for report")
-	}
-	err := errors.Wrap(uploadResultsToDataPipes(&opts), "uploading results to DataPipes")
-	// Errors uploading to Data Pipes will be only be logged while Cedar is in use.
-	if err != nil {
-		grip.Warning(message.Fields{
-			"op":    "uploadResultsToDataPipes",
-			"error": err,
-		})
-	}
 
-	return returnError
+	// Errors uploading to Data Pipes will be only be logged while Cedar is in use.
+	defer func() {
+		if err := opts.validate(); err != nil {
+			grip.Warning(message.Fields{
+				"op":    "validate options",
+				"error": err,
+			})
+			return
+		}
+
+		err := errors.Wrap(uploadResultsToDataPipes(&opts), "uploading results to DataPipes")
+		if err != nil {
+			grip.Warning(message.Fields{
+				"op":    "uploadResultsToDataPipes",
+				"error": err,
+			})
+		}
+	}()
+
+	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
+		return errors.Wrap(err, "uploading tests for report")
+	}
+	return errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun), "uploading tests for report")
 }
 
 func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) error {
@@ -148,18 +157,29 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 	}
 }
 
+func (opts *UploadReportOptions) validate() error {
+	catcher := grip.NewBasicCatcher()
+
+	catcher.NewWhen(opts.AWSAccessKey == "", "must provide an AWS access key")
+	catcher.NewWhen(opts.AWSSecretKey == "", "must provide an AWS secret key")
+	catcher.NewWhen(opts.DataPipesHost == "", "must provide the Data Pipes service hostname")
+	catcher.NewWhen(opts.DataPipesRegion == "", "must provide the Data Pipes service region")
+
+	return errors.Wrap(catcher.Resolve(), "invalid upload report options")
+}
+
 // getSignedURL calls the Data Pipes API to retrieve a signed URL, where it can PUT the report JSON.
-// Data Pipes docs: https://github.com/10gen/data-pipes
+// Data Pipes docs: https://github.com/10gen/data-pipes.
 func getSignedURL(opts *UploadReportOptions) (string, error) {
 	service := "execute-api"
 	resultType := "cedar-report"
 	if opts.AWSAccessKey == "" || opts.AWSSecretKey == "" || opts.DataPipesHost == "" || opts.DataPipesRegion == "" {
 		return "", errors.New("Getting signed URL failed. AWS access key, AWS secret key, data pipes host and data pipes region required.")
 	}
-	client := &http.Client{}
+	client := utility.GetHTTPClient()
+	defer utility.PutHTTPClient(client)
 
-	// The one and only requirement of names is that they are unique. See the data pipes
-	// API linked above.
+	// See the Data Pipes documentation for more information.
 	name := uuid.New()
 	url := fmt.Sprintf("%s/v1/results/evergreen/%s/%s/%s/%s", opts.DataPipesHost, opts.Report.TaskID, strconv.Itoa(opts.Report.Execution), resultType, name.String())
 	grip.Debug(message.Fields{
@@ -213,7 +233,7 @@ func uploadTestReport(signedURL string, data []byte) error {
 	}
 
 	grip.Debug(message.Fields{
-		"message":  "Upload to Data Pipes response",
+		"message":  "upload to Data Pipes response",
 		"function": "uploadTestReport",
 		"response": response,
 	})
