@@ -221,6 +221,9 @@ func uploadTestReport(signedURL string, data []byte, client *http.Client) error 
 		return err
 	}
 	response, err := client.Do(req)
+    grip.Info(message.Fields{
+		"url": signedURL,
+	})
 	if err != nil {
 		return errors.Wrap(err, "report upload to given signed url")
 	}
