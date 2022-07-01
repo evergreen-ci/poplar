@@ -138,7 +138,7 @@ func TestClient(t *testing.T) {
 		gock.InterceptClient(client)
 
 		gock.New("https://fakeurl.mock").
-			Put("/results/evergreen/taskID/2/cedar-report/*").
+			Put("/results/evergreen/task/taskID/execution/2/type/cedar-report/name/*").
 			Reply(200).
 			JSON(map[string]interface{}{"signed_Url": "https://s3-bucket-location.mock/signed_string", "expiration_secs": 1800})
 

@@ -42,7 +42,7 @@ type UploadReportOptions struct {
 
 // SignedURL is a struct representing a signed url returned from the data pipes API.
 type SignedURL struct {
-	URL            string `json:"signed_url"`
+	URL            string `json:"url"`
 	ExpirationSecs int    `json:"expiration_secs"`
 }
 
@@ -173,17 +173,13 @@ func (opts *UploadReportOptions) validate() error {
 func getSignedURL(opts *UploadReportOptions) (string, error) {
 	service := "execute-api"
 	resultType := "cedar-report"
-	if opts.AWSAccessKey == "" || opts.AWSSecretKey == "" || opts.DataPipesHost == "" || opts.DataPipesRegion == "" {
-		return "", errors.New("Getting signed URL failed. AWS access key, AWS secret key, data pipes host and data pipes region required.")
-	}
 
 	// See the Data Pipes documentation for more information.
 	name := uuid.New()
-	url := fmt.Sprintf("%s/v1/results/evergreen/%s/%s/%s/%s", opts.DataPipesHost, opts.Report.TaskID, strconv.Itoa(opts.Report.Execution), resultType, name.String())
+	url := fmt.Sprintf("%s/v1/results/evergreen/task/%s/execution/%s/type/%s/name/%s", opts.DataPipesHost, opts.Report.TaskID, strconv.Itoa(opts.Report.Execution), resultType, name.String())
 	grip.Debug(message.Fields{
 		"request_url": url,
 	})
-	//bytes.NewBuffer(data)
 	req, err := http.NewRequest(http.MethodPut, url, nil)
 	if err != nil {
 		return "", err
@@ -198,7 +194,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 
 	response, err := opts.DataPipesHTTPClient.Do(req)
 	if err != nil {
-		return "", errors.Wrap(err, "failed getting signed url")
+		return "", errors.Wrap(err, "getting signed url")
 	}
 
 	defer response.Body.Close()
@@ -210,7 +206,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	var responseBody SignedURL
 	err = json.Unmarshal(body, &responseBody)
 	if error != nil {
-		return "", errors.Wrap(err, "failed parsing signed url response")
+		return "", errors.Wrap(err, "parsing signed url response")
 	}
 
 	grip.Debug(message.Fields{
@@ -226,7 +222,7 @@ func uploadTestReport(signedURL string, data []byte, client *http.Client) error 
 	}
 	response, err := client.Do(req)
 	if err != nil {
-		return errors.Wrap(err, "failed report upload to given signed url")
+		return errors.Wrap(err, "report upload to given signed url")
 	}
 
 	grip.Debug(message.Fields{
