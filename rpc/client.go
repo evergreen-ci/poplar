@@ -210,7 +210,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	}
 
 	grip.Debug(message.Fields{
-		"signed_url": responseBody.URL,
+		"url": responseBody.URL,
 	})
 	return responseBody.URL, nil
 }
