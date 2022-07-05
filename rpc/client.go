@@ -63,8 +63,7 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 			return
 		}
 
-		err := errors.Wrap(uploadResultsToDataPipes(&opts), "uploading results to DataPipes")
-		if err != nil {
+		if err := errors.Wrap(uploadResultsToDataPipes(&opts), "uploading results to DataPipes"); err != nil { 
 			grip.Warning(message.Fields{
 				"op":    "uploadResultsToDataPipes",
 				"error": err,
@@ -178,7 +177,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	name := uuid.New()
 	url := fmt.Sprintf("%s/v1/results/evergreen/task/%s/execution/%s/type/%s/name/%s", opts.DataPipesHost, opts.Report.TaskID, strconv.Itoa(opts.Report.Execution), resultType, name.String())
 	grip.Debug(message.Fields{
-		"request_url": url,
+		"request URL": url,
 	})
 	req, err := http.NewRequest(http.MethodPut, url, nil)
 	if err != nil {
@@ -194,7 +193,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 
 	response, err := opts.DataPipesHTTPClient.Do(req)
 	if err != nil {
-		return "", errors.Wrap(err, "getting signed url")
+		return "", errors.Wrap(err, "getting signed URL")
 	}
 
 	defer response.Body.Close()
@@ -206,11 +205,11 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	var responseBody SignedURL
 	err = json.Unmarshal(body, &responseBody)
 	if error != nil {
-		return "", errors.Wrap(err, "parsing signed url response")
+		return "", errors.Wrap(err, "parsing signed URL response")
 	}
 
 	grip.Debug(message.Fields{
-		"url": responseBody.URL,
+		"URL": responseBody.URL,
 	})
 	return responseBody.URL, nil
 }
@@ -222,7 +221,7 @@ func uploadTestReport(signedURL string, data []byte, client *http.Client) error 
 	}
 	response, err := client.Do(req)
 	if err != nil {
-		return errors.Wrap(err, "report upload to given signed url")
+		return errors.Wrap(err, "report upload to given signed URL")
 	}
 
 	grip.Debug(message.Fields{
