@@ -46,7 +46,6 @@ func LoadReport(fn string) (*Report, error) {
 	if out.BucketConf.APIToken == "" {
 		out.BucketConf.APIToken = os.Getenv(APITokenEnv)
 	}
-
 	return out, nil
 }
 
