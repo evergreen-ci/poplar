@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,7 +64,7 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 			return
 		}
 
-		if err := errors.Wrap(uploadResultsToDataPipes(&opts), "uploading results to DataPipes"); err != nil { 
+		if err := errors.Wrap(uploadResultsToDataPipes(&opts), "uploading results to DataPipes"); err != nil {
 			grip.Warning(message.Fields{
 				"op":    "uploadResultsToDataPipes",
 				"error": err,
@@ -179,7 +180,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	grip.Debug(message.Fields{
 		"request URL": url,
 	})
-	req, err := http.NewRequest(http.MethodPut, url, nil)
+	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(""))
 	if err != nil {
 		return "", err
 	}
