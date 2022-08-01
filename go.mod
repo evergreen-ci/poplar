@@ -20,6 +20,6 @@ require (
 require (
 	github.com/aws/aws-sdk-go v1.43.30
 	github.com/google/uuid v1.3.0
-	google.golang.org/protobuf v1.28.0
+	google.golang.org/protobuf v1.28.1
 	gopkg.in/h2non/gock.v1 v1.1.2
 )
