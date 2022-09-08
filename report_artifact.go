@@ -103,7 +103,7 @@ func (a *TestArtifact) Upload(ctx context.Context, conf BucketConfiguration, dry
 		Name:        a.Bucket,
 		Prefix:      a.Prefix,
 		Region:      conf.Region,
-		MaxRetries:  10,
+		MaxRetries:  utility.ToIntPtr(10),
 		Permissions: pail.S3Permissions(a.Permissions),
 		DryRun:      dryRun,
 	}
