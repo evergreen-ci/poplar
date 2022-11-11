@@ -147,6 +147,12 @@ func TestClient(t *testing.T) {
 			Reply(200).
 			JSON(map[string]interface{}{})
 		require.NoError(t, uploadResultsToDataPipes(&opts))
+
+		gock.New("https://s3-bucket-location.mock").
+			Put("/signed_string").
+			Reply(400).
+			BodyString("")
+		require.Error(t, uploadResultsToDataPipes(&opts))
 	})
 	t.Run("DryRunUploadtoDataPipes", func(t *testing.T) {
 		testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
