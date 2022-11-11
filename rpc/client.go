@@ -198,6 +198,10 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	}
 
 	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return "", errors.Errorf("Non-OK HTTP status. Status Code: %d. Status Text: %s", response.StatusCode, http.StatusText(response.StatusCode))
+	}
+
 	body, error := ioutil.ReadAll(response.Body)
 	if error != nil {
 		return "", err
@@ -223,6 +227,11 @@ func uploadTestReport(signedURL string, data []byte, client *http.Client) error 
 	response, err := client.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "report upload to given signed URL")
+	}
+	
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return errors.Errorf("Non-OK HTTP status. Status Code: %d. Status Text: %s", response.StatusCode, http.StatusText(response.StatusCode))
 	}
 
 	grip.Debug(message.Fields{
