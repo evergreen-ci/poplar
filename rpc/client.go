@@ -184,14 +184,14 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	})
 	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(""))
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Creating data-pipes signed url request")
 	}
 
 	AWSCredentials := credentials.NewStaticCredentials(opts.AWSAccessKey, opts.AWSSecretKey, opts.AWSToken)
 	signer := v4.NewSigner(AWSCredentials)
 	_, err = signer.Sign(req, nil, service, opts.DataPipesRegion, time.Now())
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Signing in to AWS to send data-pipes request")
 	}
 
 	response, err := opts.DataPipesHTTPClient.Do(req)
@@ -232,7 +232,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 func uploadTestReport(signedURL string, data []byte, client *http.Client) error {
 	req, err := http.NewRequest(http.MethodPut, signedURL, bytes.NewBuffer(data))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Creating request to upload test report to data-pipes")
 	}
 	response, err := client.Do(req)
 	if err != nil {
@@ -241,7 +241,7 @@ func uploadTestReport(signedURL string, data []byte, client *http.Client) error 
 
 	defer response.Body.Close()
 	grip.Debug(message.Fields{
-		"message":  "Upload test report response",
+		"message":  "Upload test report to data-pipes response",
 		"function": "uploadTestReport",
 		"response": response,
 	})
@@ -267,7 +267,7 @@ func uploadResultsToDataPipes(opts *UploadReportOptions) error {
 	}
 	jsonResp, err := json.Marshal(opts.Report)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Marshalling test report to JSON")
 	}
 	signedURL, err := getSignedURL(opts)
 	if err != nil {
