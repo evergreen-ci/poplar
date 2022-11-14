@@ -178,6 +178,8 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	name := uuid.New()
 	url := fmt.Sprintf("%s/v1/results/evergreen/task/%s/execution/%s/type/%s/name/%s", opts.DataPipesHost, opts.Report.TaskID, strconv.Itoa(opts.Report.Execution), resultType, name.String())
 	grip.Debug(message.Fields{
+		"message":     "Getting data-pipes signed URL",
+		"function":    "getSignedURL",
 		"request URL": url,
 	})
 	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(""))
@@ -199,26 +201,31 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 
 	defer response.Body.Close()
 	grip.Debug(message.Fields{
-		"Status Code": response.StatusCode,
+		"message":  "Getting data-pipes signed URL response",
+		"function": "getSignedURL",
+		"response": response,
 	})
 	if response.StatusCode != http.StatusOK {
-		return "", errors.Errorf("Non-OK HTTP status. Status Code: %d. Status Text: %s", response.StatusCode, http.StatusText(response.StatusCode))
+		return "", errors.Errorf("Failed to get data-pipes signed url. Request failed with status %d (%s)", response.StatusCode, http.StatusText(response.StatusCode))
 	}
 
-	body, error := ioutil.ReadAll(response.Body)
-	if error != nil {
-		return "", err
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return "", errors.Wrap(err, "Reading get data-pipes signed url response")
 	}
 
 	var responseBody SignedURL
 	err = json.Unmarshal(body, &responseBody)
-	if error != nil {
+	if err != nil {
 		return "", errors.Wrap(err, "parsing signed URL response")
 	}
 
 	grip.Debug(message.Fields{
-		"URL": responseBody.URL,
+		"message":    "data-pipes signed URL",
+		"function":   "getSignedURL",
+		"signed URL": responseBody.URL,
 	})
+
 	return responseBody.URL, nil
 }
 
@@ -234,17 +241,13 @@ func uploadTestReport(signedURL string, data []byte, client *http.Client) error 
 
 	defer response.Body.Close()
 	grip.Debug(message.Fields{
-		"Status Code": response.StatusCode,
-	})
-	if response.StatusCode != http.StatusOK {
-		return errors.Errorf("Non-OK HTTP status. Status Code: %d. Status Text: %s", response.StatusCode, http.StatusText(response.StatusCode))
-	}
-
-	grip.Debug(message.Fields{
-		"message":  "upload to Data Pipes response",
+		"message":  "Upload test report response",
 		"function": "uploadTestReport",
 		"response": response,
 	})
+	if response.StatusCode != http.StatusOK {
+		return errors.Errorf("Failed to upload test report to data-pipes service. Response status Code: %d (%s)", response.StatusCode, http.StatusText(response.StatusCode))
+	}
 
 	return nil
 }
