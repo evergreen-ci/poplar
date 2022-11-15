@@ -169,7 +169,7 @@ func (opts *UploadReportOptions) validate() error {
 }
 
 // getSignedURL calls the Data Pipes API to retrieve a signed URL, where it can PUT the report JSON.
-// Data Pipes docs: https://github.com/10gen/Data Pipes.
+// Data Pipes docs: https://github.com/10gen/data-pipes.
 func getSignedURL(opts *UploadReportOptions) (string, error) {
 	service := "execute-api"
 	resultType := "cedar-report"
@@ -218,12 +218,6 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	if err = json.Unmarshal(body, &responseBody); err != nil {
 		return "", errors.Wrap(err, "parsing signed URL response")
 	}
-
-	grip.Debug(message.Fields{
-		"message":    "Data Pipes signed URL",
-		"function":   "getSignedURL",
-		"signed URL": responseBody.URL,
-	})
 
 	return responseBody.URL, nil
 }
