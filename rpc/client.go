@@ -184,7 +184,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	})
 	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(""))
 	if err != nil {
-		return "", errors.Wrap(err, "creating Data Pipes signed url request")
+		return "", errors.Wrap(err, "creating Data Pipes signed URL request")
 	}
 
 	AWSCredentials := credentials.NewStaticCredentials(opts.AWSAccessKey, opts.AWSSecretKey, opts.AWSToken)
@@ -206,7 +206,7 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 		"response": response,
 	})
 	if response.StatusCode != http.StatusOK {
-		return "", errors.Errorf("failed to get Data Pipes signed url. Request failed with status %d (%s)", response.StatusCode, http.StatusText(response.StatusCode))
+		return "", errors.Errorf("failed get Data Pipes signed URL with response '%s'", response.Status)
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
@@ -239,7 +239,7 @@ func uploadTestReport(signedURL string, data []byte, client *http.Client) error 
 		"response": response,
 	})
 	if response.StatusCode != http.StatusOK {
-		return errors.Errorf("failed to upload test report to Data Pipes service. Response status Code: %d (%s)", response.StatusCode, http.StatusText(response.StatusCode))
+		return errors.Errorf("failed to upload test report to Data Pipes with response '%s'", response.Status)
 	}
 
 	return nil
