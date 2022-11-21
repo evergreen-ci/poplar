@@ -41,7 +41,7 @@ type UploadReportOptions struct {
 	DryRun              bool
 }
 
-// SignedURL is a struct representing a signed url returned from the data pipes API.
+// SignedURL is a struct representing a signed url returned from the Data Pipes API.
 type SignedURL struct {
 	URL            string `json:"url"`
 	ExpirationSecs int    `json:"expiration_secs"`
@@ -178,18 +178,20 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	name := uuid.New()
 	url := fmt.Sprintf("%s/v1/results/evergreen/task/%s/execution/%s/type/%s/name/%s", opts.DataPipesHost, opts.Report.TaskID, strconv.Itoa(opts.Report.Execution), resultType, name.String())
 	grip.Debug(message.Fields{
+		"message":     "getting Data Pipes signed URL",
+		"function":    "getSignedURL",
 		"request URL": url,
 	})
 	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(""))
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "creating Data Pipes signed URL request")
 	}
 
 	AWSCredentials := credentials.NewStaticCredentials(opts.AWSAccessKey, opts.AWSSecretKey, opts.AWSToken)
 	signer := v4.NewSigner(AWSCredentials)
 	_, err = signer.Sign(req, nil, service, opts.DataPipesRegion, time.Now())
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "signing in to AWS to send Data Pipes request")
 	}
 
 	response, err := opts.DataPipesHTTPClient.Do(req)
@@ -198,45 +200,54 @@ func getSignedURL(opts *UploadReportOptions) (string, error) {
 	}
 
 	defer response.Body.Close()
-	body, error := ioutil.ReadAll(response.Body)
-	if error != nil {
-		return "", err
+	grip.Debug(message.Fields{
+		"message":  "getting Data Pipes signed URL response",
+		"function": "getSignedURL",
+		"response": response,
+	})
+	if response.StatusCode != http.StatusOK {
+		return "", errors.Errorf("failed get Data Pipes signed URL with response '%s'", response.Status)
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return "", errors.Wrap(err, "reading Data Pipes signed url response")
 	}
 
 	var responseBody SignedURL
-	err = json.Unmarshal(body, &responseBody)
-	if error != nil {
+	if err = json.Unmarshal(body, &responseBody); err != nil {
 		return "", errors.Wrap(err, "parsing signed URL response")
 	}
 
-	grip.Debug(message.Fields{
-		"URL": responseBody.URL,
-	})
 	return responseBody.URL, nil
 }
 
 func uploadTestReport(signedURL string, data []byte, client *http.Client) error {
 	req, err := http.NewRequest(http.MethodPut, signedURL, bytes.NewBuffer(data))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "creating request to upload test report to Data Pipes")
 	}
 	response, err := client.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "report upload to given signed URL")
 	}
 
+	defer response.Body.Close()
 	grip.Debug(message.Fields{
-		"message":  "upload to Data Pipes response",
+		"message":  "upload test report to Data Pipes response",
 		"function": "uploadTestReport",
 		"response": response,
 	})
+	if response.StatusCode != http.StatusOK {
+		return errors.Errorf("failed to upload test report to Data Pipes with response '%s'", response.Status)
+	}
 
 	return nil
 }
 
 // uploadResultsToDataPipes uploads the report JSON to Data Pipes for further processing.
 func uploadResultsToDataPipes(opts *UploadReportOptions) error {
-	// The bucket configuration contains the user's sensitive information that the data pipes
+	// The bucket configuration contains the user's sensitive information that the Data Pipes
 	// and processors don't need, so we redact it.
 	opts.Report.BucketConf = poplar.BucketConfiguration{}
 	if opts.DryRun {
@@ -249,7 +260,7 @@ func uploadResultsToDataPipes(opts *UploadReportOptions) error {
 	}
 	jsonResp, err := json.Marshal(opts.Report)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "marshalling test report to JSON")
 	}
 	signedURL, err := getSignedURL(opts)
 	if err != nil {

@@ -148,6 +148,64 @@ func TestClient(t *testing.T) {
 			JSON(map[string]interface{}{})
 		require.NoError(t, uploadResultsToDataPipes(&opts))
 	})
+
+	t.Run("WetRunUploadToDataPipesBadGetSignedURLResponse", func(t *testing.T) {
+		testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
+		client := utility.GetHTTPClient()
+		defer utility.PutHTTPClient(client)
+		opts := UploadReportOptions{
+			Report:              &testReport,
+			SerializeUpload:     false,
+			AWSAccessKey:        AWSAccessKey,
+			AWSSecretKey:        AWSSecretKey,
+			AWSToken:            AWSToken,
+			DataPipesHost:       "https://fakeurl.mock",
+			DataPipesRegion:     "fake-region",
+			DataPipesHTTPClient: client,
+			DryRun:              false,
+		}
+		defer gock.Off()
+		defer gock.RestoreClient(client)
+		gock.InterceptClient(client)
+
+		gock.New("https://fakeurl.mock").
+			Put("/results/evergreen/task/taskID/execution/2/type/cedar-report/name/*").
+			Reply(400).
+			JSON(map[string]interface{}{})
+		require.Error(t, uploadResultsToDataPipes(&opts))
+	})
+
+	t.Run("WetRunUploadToDataPipesBadSignedURLResponse", func(t *testing.T) {
+		testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
+		client := utility.GetHTTPClient()
+		defer utility.PutHTTPClient(client)
+		opts := UploadReportOptions{
+			Report:              &testReport,
+			SerializeUpload:     false,
+			AWSAccessKey:        AWSAccessKey,
+			AWSSecretKey:        AWSSecretKey,
+			AWSToken:            AWSToken,
+			DataPipesHost:       "https://fakeurl.mock",
+			DataPipesRegion:     "fake-region",
+			DataPipesHTTPClient: client,
+			DryRun:              false,
+		}
+		defer gock.Off()
+		defer gock.RestoreClient(client)
+		gock.InterceptClient(client)
+
+		gock.New("https://fakeurl.mock").
+			Put("/results/evergreen/task/taskID/execution/2/type/cedar-report/name/*").
+			Reply(200).
+			JSON(map[string]interface{}{"url": "https://s3-bucket-location.mock/signed_string", "expiration_secs": 1800})
+
+		gock.New("https://s3-bucket-location.mock").
+			Put("/signed_string").
+			Reply(400).
+			JSON(map[string]interface{}{})
+		require.Error(t, uploadResultsToDataPipes(&opts))
+	})
+
 	t.Run("DryRunUploadtoDataPipes", func(t *testing.T) {
 		testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
 		opts := UploadReportOptions{
@@ -160,6 +218,7 @@ func TestClient(t *testing.T) {
 		}
 		require.NoError(t, uploadResultsToDataPipes(&opts))
 	})
+
 	t.Run("WetRun", func(t *testing.T) {
 		for _, serialize := range []bool{true, false} {
 			testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
