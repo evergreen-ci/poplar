@@ -1,3 +1,5 @@
+// nolint:gofmt,goimports
+//
 // Package poplar provides a set of tools for running and managing
 // results for benchmarks in go.
 //
