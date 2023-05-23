@@ -1,6 +1,6 @@
 module github.com/evergreen-ci/poplar
 
-go 1.19
+go 1.20
 
 require (
 	github.com/evergreen-ci/aviation v0.0.0-20220405151811-ff4a78a4297c
