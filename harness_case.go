@@ -54,16 +54,15 @@ type Recorder events.Recorder
 //
 // In general, functions should resemble the following:
 //
-//    func(ctx context.Context, r events.Recorder, count int) error {
-//         ticks := 0
-//         for i :=0, i < count; i++ {
-//             r.Begin()
-//             ticks += 4
-//             r.IncOps(4)
-//             r.End()
-//         }
-//    }
-//
+//	func(ctx context.Context, r events.Recorder, count int) error {
+//	     ticks := 0
+//	     for i :=0, i < count; i++ {
+//	         r.Begin()
+//	         ticks += 4
+//	         r.IncOps(4)
+//	         r.End()
+//	     }
+//	}
 type Benchmark func(context.Context, Recorder, int) error
 
 func (bench Benchmark) standard(recorder events.Recorder) func(*testing.B) {
