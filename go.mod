@@ -20,7 +20,7 @@ require (
 require (
 	github.com/aws/aws-sdk-go v1.44.127
 	github.com/google/uuid v1.3.0
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.31.0
 	gopkg.in/h2non/gock.v1 v1.1.2
 )
 
