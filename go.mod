@@ -17,16 +17,12 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-require (
-	github.com/aws/aws-sdk-go v1.44.127
-	github.com/google/uuid v1.3.0
-	google.golang.org/protobuf v1.28.1
-	gopkg.in/h2non/gock.v1 v1.1.2
-)
+require google.golang.org/protobuf v1.28.1
 
 require (
 	github.com/PuerkitoBio/rehttp v1.1.0 // indirect
 	github.com/andygrunwald/go-jira v1.14.0 // indirect
+	github.com/aws/aws-sdk-go v1.44.127 // indirect
 	github.com/bluele/slack v0.0.0-20180528010058-b4b4d354a079 // indirect
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -42,8 +38,8 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-github v17.0.0+incompatible // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
-	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
