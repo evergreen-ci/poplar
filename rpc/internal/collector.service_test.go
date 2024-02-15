@@ -2,7 +2,6 @@ package internal
 
 import (
 	"bytes"
-	"container/list"
 	"context"
 	fmt "fmt"
 	"io/ioutil"
@@ -96,7 +95,7 @@ func TestCloseCollector(t *testing.T) {
 	svc.coordinator.groups["group"] = &streamGroup{
 		streams: map[string]*stream{
 			"id1": {
-				buffer: &list.List{},
+				// buffer: &list.List{},
 			},
 		},
 		eventHeap: &PerformanceHeap{},

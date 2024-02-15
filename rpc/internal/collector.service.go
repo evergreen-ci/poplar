@@ -1,9 +1,11 @@
 package internal
 
 import (
+	"bytes"
+	"compress/gzip"
 	"container/heap"
-	"container/list"
 	"context"
+	"encoding/gob"
 	"io"
 	"sync"
 
@@ -157,7 +159,10 @@ type streamGroup struct {
 type stream struct {
 	inHeap bool
 	closed bool
-	buffer *list.List
+
+	buffer  bytes.Buffer
+	encoder *gob.Encoder
+	decoder *gob.Decoder
 }
 
 // addStream adds a new stream to the group for the given collector. If the
@@ -188,7 +193,16 @@ func (sc *streamsCoordinator) addStream(name string, registry *poplar.RecorderRe
 	defer group.mu.Unlock()
 
 	id := utility.RandomString()
-	group.streams[id] = &stream{buffer: list.New()}
+
+	buffer := bytes.Buffer{}
+	encoder := gob.NewEncoder(gzip.NewWriter(&buffer))
+	reader, _ := gzip.NewReader(&buffer)
+	decoder := gob.NewDecoder(reader)
+	group.streams[id] = &stream{
+		buffer:  bytes.Buffer{},
+		encoder: encoder,
+		decoder: decoder,
+	}
 	group.availableStreams = append(group.availableStreams, id)
 
 	return nil
@@ -232,7 +246,10 @@ func (sg *streamGroup) addEvent(ctx context.Context, id string, event *events.Pe
 	}
 
 	if stream.inHeap {
-		stream.buffer.PushBack(event)
+		err := stream.encoder.Encode(event)
+		if err != nil {
+			panic(err)
+		}
 		return nil
 	}
 	sg.eventHeap.SafePush(&performanceHeapItem{id: id, event: event})
@@ -279,12 +296,15 @@ func (sg *streamGroup) flush() error {
 			} else {
 				stream.inHeap = false
 			}
-			if event := stream.buffer.Front(); event != nil {
-				// Get next event from stream's buffer and add
-				// it to the min heap.
-				sg.eventHeap.SafePush(&performanceHeapItem{id: item.id, event: event.Value.(*events.Performance)})
-				stream.inHeap = true
-				stream.buffer.Remove(event)
+			if stream.buffer.Len() > 0 {
+				event := new(events.Performance)
+				stream.decoder.Decode(&event)
+				if event != nil {
+					// Get next event from stream's buffer and add
+					// it to the min heap.
+					sg.eventHeap.SafePush(&performanceHeapItem{id: item.id, event: event})
+					stream.inHeap = true
+				}
 			}
 		}
 
