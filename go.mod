@@ -3,7 +3,7 @@ module github.com/evergreen-ci/poplar
 go 1.20
 
 require (
-	github.com/evergreen-ci/aviation v0.0.0-20220405151811-ff4a78a4297c
+	github.com/evergreen-ci/aviation v0.0.0-20240509141021-0e3a1c91cc79
 	github.com/evergreen-ci/birch v0.0.0-20220401151432-c792c3d8e0eb
 	github.com/evergreen-ci/juniper v0.0.0-20220118233332-0813edc78908
 	github.com/evergreen-ci/pail v0.0.0-20220908201135-8a2090a672b7
