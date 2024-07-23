@@ -50,11 +50,13 @@ type Test struct {
 // the parent test for sub tests, and should be populated
 // automatically by the client when uploading results.
 type TestInfo struct {
-	TestName  string           `bson:"test_name" json:"test_name" yaml:"test_name"`
-	Trial     int              `bson:"trial" json:"trial" yaml:"trial"`
-	Parent    string           `bson:"parent" json:"parent" yaml:"parent"`
-	Tags      []string         `bson:"tags" json:"tags" yaml:"tags"`
-	Arguments map[string]int32 `bson:"args" json:"args" yaml:"args"`
+	TestName            string            `bson:"test_name" json:"test_name" yaml:"test_name"`
+	Trial               int               `bson:"trial" json:"trial" yaml:"trial"`
+	Parent              string            `bson:"parent" json:"parent" yaml:"parent"`
+	Tags                []string          `bson:"tags" json:"tags" yaml:"tags"`
+	Arguments           map[string]int32  `bson:"args" json:"args" yaml:"args"`
+        ReferenceVersionID  string            `bson:"version,omitempty" json:"version,omitempty" yaml:"version,omitempty"`
+
 }
 
 // TestArtifact is an optional structure to allow you to upload and
