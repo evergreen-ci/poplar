@@ -55,7 +55,7 @@ type TestInfo struct {
 	Parent             string           `bson:"parent" json:"parent" yaml:"parent"`
 	Tags               []string         `bson:"tags" json:"tags" yaml:"tags"`
 	Arguments          map[string]int32 `bson:"args" json:"args" yaml:"args"`
-	ReferenceVersionID string           `bson:"version,omitempty" json:"version,omitempty" yaml:"version,omitempty"`
+	ReferenceVersionID string           `bson:"reference_version_id,omitempty" json:"reference_version_id,omitempty" yaml:"reference_version_id,omitempty"`
 }
 
 // TestArtifact is an optional structure to allow you to upload and
