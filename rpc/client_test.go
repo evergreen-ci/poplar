@@ -311,6 +311,44 @@ func generateTestReport(testdataDir, s3Name, s3Prefix string, duplicateMetric bo
 					},
 				},
 			},
+			{
+				Info: poplar.TestInfo{
+					TestName:           "test1",
+					ReferenceVersionID: "XYZ",
+				},
+				Artifacts: []poplar.TestArtifact{
+					{
+						Bucket:           s3Name,
+						Prefix:           s3Prefix,
+						Path:             "json_example.ftdc",
+						LocalFile:        filepath.Join(testdataDir, "json_example.json"),
+						CreatedAt:        time.Date(2018, time.July, 4, 11, 59, 0, 0, time.UTC),
+						ConvertJSON2FTDC: true,
+					},
+				},
+				SubTests: []poplar.Test{
+					{
+						Info: poplar.TestInfo{
+							TestName:           "test10",
+							ReferenceVersionID: "XYZ",
+						},
+						Metrics: []poplar.TestMetrics{
+							{
+								Name:    "mean",
+								Version: 1,
+								Value:   1.5,
+								Type:    "MEAN",
+							},
+							{
+								Name:    "sum",
+								Version: 1,
+								Value:   10,
+								Type:    "SUM",
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
