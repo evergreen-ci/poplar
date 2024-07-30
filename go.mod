@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/evergreen-ci/aviation v0.0.0-20240509141021-0e3a1c91cc79
 	github.com/evergreen-ci/birch v0.0.0-20220401151432-c792c3d8e0eb
-	github.com/evergreen-ci/juniper v0.0.0-20220118233332-0813edc78908
+	github.com/evergreen-ci/juniper v0.0.0-20240730154519-85cbb8b8053e
 	github.com/evergreen-ci/pail v0.0.0-20240503141904-b600c21b5f20
 	github.com/evergreen-ci/utility v0.0.0-20220404192535-d16eb64796e6
 	github.com/mongodb/ftdc v0.0.0-20220401165013-13e4af55e809
