@@ -87,12 +87,16 @@ func TestClient(t *testing.T) {
 		report.Tests[0].SubTests[0],
 		report.Tests[1],
 		report.Tests[1].SubTests[0],
+		report.Tests[2],
+		report.Tests[2].SubTests[0],
 	}
 	expectedParents := map[string]string{
 		"test0":  "",
 		"test00": "test0",
 		"test1":  "",
 		"test10": "test1",
+		"test2":  "",
+		"test20": "test2",
 	}
 	for i := range expectedTests {
 		for j := range expectedTests[i].Artifacts {
@@ -313,7 +317,7 @@ func generateTestReport(testdataDir, s3Name, s3Prefix string, duplicateMetric bo
 			},
 			{
 				Info: poplar.TestInfo{
-					TestName:           "test1",
+					TestName:           "test2",
 					ReferenceVersionID: "XYZ",
 				},
 				Artifacts: []poplar.TestArtifact{
@@ -329,7 +333,7 @@ func generateTestReport(testdataDir, s3Name, s3Prefix string, duplicateMetric bo
 				SubTests: []poplar.Test{
 					{
 						Info: poplar.TestInfo{
-							TestName:           "test10",
+							TestName:           "test20",
 							ReferenceVersionID: "XYZ",
 						},
 						Metrics: []poplar.TestMetrics{
