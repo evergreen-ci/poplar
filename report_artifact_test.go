@@ -284,7 +284,8 @@ func TestUpload(t *testing.T) {
 				APIToken: "asdf",
 				Region:   s3Region,
 			},
-			hasErr: true,
+			dryRunNoErr: true,
+			hasErr:      true,
 		},
 		{
 			name: "SuccessfulUpload",
