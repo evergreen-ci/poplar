@@ -326,7 +326,7 @@ func TestUpload(t *testing.T) {
 					client := utility.GetHTTPClient()
 					defer utility.PutHTTPClient(client)
 
-					bucket, err := pail.NewS3BucketWithHTTPClient(client, opts)
+					bucket, err := pail.NewS3BucketWithHTTPClient(ctx, client, opts)
 					require.NoError(t, err)
 
 					require.NoError(t, test.artifact.Upload(ctx, test.bucketConf, dryRun))

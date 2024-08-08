@@ -78,7 +78,7 @@ func TestClient(t *testing.T) {
 	client := utility.GetHTTPClient()
 	defer utility.PutHTTPClient(client)
 
-	s3Bucket, err := pail.NewS3BucketWithHTTPClient(client, s3Opts)
+	s3Bucket, err := pail.NewS3BucketWithHTTPClient(ctx, client, s3Opts)
 	require.NoError(t, err)
 
 	report := generateTestReport(testdataDir, s3Name, s3Prefix, false)
