@@ -113,7 +113,7 @@ func (a *TestArtifact) Upload(ctx context.Context, conf BucketConfiguration, dry
 	client := utility.GetHTTPClient()
 	defer utility.PutHTTPClient(client)
 
-	bucket, err := pail.NewS3MultiPartBucketWithHTTPClient(client, opts)
+	bucket, err := pail.NewS3MultiPartBucketWithHTTPClient(ctx, client, opts)
 	if err != nil {
 		return errors.Wrap(err, "creating bucket")
 	}
