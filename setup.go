@@ -10,7 +10,7 @@ import (
 
 	"github.com/evergreen-ci/aviation/services"
 	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"google.golang.org/grpc"
 	yaml "gopkg.in/yaml.v2"
 )
