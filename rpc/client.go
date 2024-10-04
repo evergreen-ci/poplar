@@ -33,7 +33,7 @@ type UploadReportOptions struct {
 
 	SendToCedar  bool //Whether to send the report to Cedar.
 	SendToSPS    bool //Whether to send the report to SPS.
-	SendRatioSPS int  //What fraction of requests to send to SPS. The format will be 1/x, where x is the number set here.
+	SendRatioSPS int  //What fraction of requests to send to SPS. If SendRatioSPS is 1, then every request will be sent to SPS. The formula is 1/SendRatioSPS.
 }
 
 // UploadReport does the following:
@@ -104,9 +104,9 @@ func uploadTestsToSPS(ctx context.Context, report *poplar.Report, client *http.C
 	if response.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(response.Body)
 		if err == nil {
-			return errors.Errorf("unexpected status code: %d: %s", response.StatusCode, body)
+			return errors.Wrapf(err, "unexpected status code: %d: %s", response.StatusCode, body)
 		} else {
-			return errors.Errorf("unexpected status code: %d", response.StatusCode)
+			return errors.Wrapf(err, "unexpected status code: %d", response.StatusCode)
 		}
 
 	}
