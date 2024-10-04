@@ -1,7 +1,12 @@
 package rpc
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
+	"math/rand"
+	"net/http"
 	"runtime"
 	"sync"
 
@@ -16,12 +21,19 @@ import (
 )
 
 // UploadReportOptions contains all the required options for uploading a report
-// to both Cedar and the Data Pipes service.
+// to both Cedar and SPS.
+
 type UploadReportOptions struct {
 	Report          *poplar.Report
-	ClientConn      *grpc.ClientConn
+	CedarClientConn *grpc.ClientConn
+	SPSClientConn   *http.Client
+	SPSUrl          string
 	SerializeUpload bool
 	DryRun          bool
+
+	SendToCedar  bool //Whether to send the report to Cedar.
+	SendToSPS    bool //Whether to send the report to SPS.
+	SendRatioSPS int  //What fraction of requests to send to SPS. The format will be 1/x, where x is the number set here.
 }
 
 // UploadReport does the following:
@@ -32,7 +44,73 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		return errors.Wrap(err, "uploading tests for report")
 	}
-	return errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun), "uploading tests for report")
+	if opts.SendToCedar {
+		if err := uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.CedarClientConn), opts.Report, opts.Report.Tests, opts.DryRun); err != nil {
+			return errors.Wrap(err, "uploading metrics for report")
+		}
+	}
+	// This is a random number generator that is used to determine if the report should be uploaded to the new SPS endpoint.
+	// We're using a random number generator that will be set through a config value.
+	randomNumber := rand.Intn(opts.SendRatioSPS)
+	if randomNumber == 0 && !opts.DryRun && opts.SendToSPS {
+		if err := uploadTestsToSPS(ctx, opts.Report, opts.SPSClientConn, opts.SPSUrl); err != nil {
+			if opts.SendToCedar {
+				// We'll investigate any errors using Honeycomb. The data is already in Cedar, so we don't need to worry about it.
+				grip.Info(message.Fields{
+					"message":  "Failed to upload report to SPS",
+					"function": "uploadTestsToSPS",
+					"error":    err,
+					"task_id":  opts.Report.TaskID,
+				})
+			} else {
+				// Cedar is turned off, so we need to investigate why we're not able to send data.
+				return errors.Wrap(err, "uploading metrics for report to SPS")
+			}
+		}
+	}
+	return nil
+}
+
+func uploadTestsToSPS(ctx context.Context, report *poplar.Report, client *http.Client, spsUrl string) error {
+	taskInformation := &internal.TaskInformation{
+		Project:   report.Project,
+		Version:   report.Version,
+		Variant:   report.Variant,
+		Order:     report.Order,
+		TaskName:  report.TaskName,
+		TaskId:    report.TaskID,
+		Execution: report.Execution,
+		Mainline:  report.Mainline,
+	}
+	perfResults := internal.GatherPerfResults(report)
+	requestBody := &internal.SubmitPerfResultRequest{
+		Id:      *taskInformation,
+		Results: perfResults,
+	}
+	marshalledBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return errors.Wrap(err, "marshalling request body")
+	}
+	bodyReader := bytes.NewReader(marshalledBody)
+	requestUrl := spsUrl + "/raw_perf_results"
+	request, err := http.NewRequestWithContext(ctx, "POST", requestUrl, bodyReader)
+	if err != nil {
+		return errors.Wrap(err, "creating request")
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		return errors.Wrap(err, "sending request")
+	}
+	if response.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(response.Body)
+		if err == nil {
+			return errors.Errorf("unexpected status code: %d: %s", response.StatusCode, body)
+		} else {
+			return errors.Errorf("unexpected status code: %d", response.StatusCode)
+		}
+
+	}
+	return nil
 }
 
 func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) error {
