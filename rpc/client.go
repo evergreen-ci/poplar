@@ -104,7 +104,7 @@ func uploadTestsToSPS(ctx context.Context, report *poplar.Report, client *http.C
 	if response.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(response.Body)
 		if err == nil {
-			return errors.Wrapf(err, "unexpected status code: %d: %s", response.StatusCode, body)
+			return errors.Errorf("unexpected status code: %d: %s", response.StatusCode, body)
 		} else {
 			return errors.Wrapf(err, "unexpected status code: %d", response.StatusCode)
 		}
