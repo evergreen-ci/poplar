@@ -32,10 +32,10 @@ type UploadReportOptions struct {
 	SerializeUpload bool
 	DryRun          bool
 
-	// Whether to send the report to Cedar.
+	// SendToCedar specifies whether to send the report to Cedar.
 	SendToCedar bool
-	// What fraction of requests to send to SPS.
-	// If SendRatioSPS is 1, then every request will be sent to SPS. The formula is 1/SendRatioSPS.
+	// SendRatioSPS specifies the probability of sending the report to SPS.
+	// If set to is 1, then the report is always sent to SPS.
 	SendRatioSPS int
 }
 
