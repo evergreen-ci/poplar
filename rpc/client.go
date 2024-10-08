@@ -13,6 +13,7 @@ import (
 	"github.com/evergreen-ci/juniper/gopb"
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
@@ -26,14 +27,16 @@ import (
 type UploadReportOptions struct {
 	Report          *poplar.Report
 	CedarClientConn *grpc.ClientConn
-	SPSClientConn   *http.Client
-	SPSUrl          string
+	HTTPClient      *http.Client
+	SPSURL          string
 	SerializeUpload bool
 	DryRun          bool
 
-	SendToCedar  bool //Whether to send the report to Cedar.
-	SendToSPS    bool //Whether to send the report to SPS.
-	SendRatioSPS int  //What fraction of requests to send to SPS. If SendRatioSPS is 1, then every request will be sent to SPS. The formula is 1/SendRatioSPS.
+	// Whether to send the report to Cedar.
+	SendToCedar bool
+	// What fraction of requests to send to SPS.
+	// If SendRatioSPS is 1, then every request will be sent to SPS. The formula is 1/SendRatioSPS.
+	SendRatioSPS int
 }
 
 // UploadReport does the following:
@@ -49,11 +52,18 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 			return errors.Wrap(err, "uploading metrics for report")
 		}
 	}
-	// This is a random number generator that is used to determine if the report should be uploaded to the new SPS endpoint.
-	// We're using a random number generator that will be set through a config value.
-	randomNumber := rand.Intn(opts.SendRatioSPS)
-	if randomNumber == 0 && !opts.DryRun && opts.SendToSPS {
-		if err := uploadTestsToSPS(ctx, opts.Report, opts.SPSClientConn, opts.SPSUrl); err != nil {
+	if !opts.DryRun && opts.SendRatioSPS > 0 {
+		// This is a random number generator that is used to determine if the report should be uploaded to the new SPS endpoint.
+		// We're using a random number generator that will be set through a config value.
+		randomNumber := rand.Intn(opts.SendRatioSPS)
+		if randomNumber != 0 {
+			return nil
+		}
+		if opts.HTTPClient == nil {
+			opts.HTTPClient = utility.GetHTTPClient()
+			defer utility.PutHTTPClient(opts.HTTPClient)
+		}
+		if err := uploadTestsToSPS(ctx, opts.Report, opts.HTTPClient, opts.SPSURL); err != nil {
 			if opts.SendToCedar {
 				// We'll investigate any errors using Honeycomb. The data is already in Cedar, so we don't need to worry about it.
 				grip.Info(message.Fields{
@@ -71,7 +81,7 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	return nil
 }
 
-func uploadTestsToSPS(ctx context.Context, report *poplar.Report, client *http.Client, spsUrl string) error {
+func uploadTestsToSPS(ctx context.Context, report *poplar.Report, client *http.Client, spsURL string) error {
 	taskInformation := &internal.TaskInformation{
 		Project:   report.Project,
 		Version:   report.Version,
@@ -92,8 +102,8 @@ func uploadTestsToSPS(ctx context.Context, report *poplar.Report, client *http.C
 		return errors.Wrap(err, "marshalling request body")
 	}
 	bodyReader := bytes.NewReader(marshalledBody)
-	requestUrl := spsUrl + "/raw_perf_results"
-	request, err := http.NewRequestWithContext(ctx, "POST", requestUrl, bodyReader)
+	requestURL := spsURL + "/raw_perf_results"
+	request, err := http.NewRequestWithContext(ctx, "POST", requestURL, bodyReader)
 	if err != nil {
 		return errors.Wrap(err, "creating request")
 	}
