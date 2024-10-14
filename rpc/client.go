@@ -65,13 +65,8 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 		}
 		if err := uploadTestsToSPS(ctx, opts.Report, opts.HTTPClient, opts.SPSURL); err != nil {
 			if opts.SendToCedar {
-				// We'll investigate any errors using Honeycomb. The data is already in Cedar, so we don't need to worry about it.
-				grip.Info(message.Fields{
-					"message":  "Failed to upload report to SPS",
-					"function": "uploadTestsToSPS",
-					"error":    err,
-					"task_id":  opts.Report.TaskID,
-				})
+				// We'll investigate any errors using Splunk. The data is already in Cedar, so we don't need to worry about it.
+				grip.Debug(grip.WrapErrorTimeMessagef(err, "Failed to upload report to SPS. Task_id: %s", opts.Report.TaskID))
 			} else {
 				// Cedar is turned off, so we need to investigate why we're not able to send data.
 				return errors.Wrap(err, "uploading metrics for report to SPS")
