@@ -1,13 +1,19 @@
 package rpc
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
+	"math/rand"
+	"net/http"
 	"runtime"
 	"sync"
 
 	"github.com/evergreen-ci/juniper/gopb"
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/poplar/rpc/internal"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
@@ -16,12 +22,21 @@ import (
 )
 
 // UploadReportOptions contains all the required options for uploading a report
-// to both Cedar and the Data Pipes service.
+// to both Cedar and SPS.
+
 type UploadReportOptions struct {
 	Report          *poplar.Report
-	ClientConn      *grpc.ClientConn
+	CedarClientConn *grpc.ClientConn
+	HTTPClient      *http.Client
+	SPSURL          string
 	SerializeUpload bool
 	DryRun          bool
+
+	// SendToCedar specifies whether to send the report to Cedar.
+	SendToCedar bool
+	// SendRatioSPS specifies the probability of sending the report to SPS.
+	// If set to is 1, then the report is always sent to SPS.
+	SendRatioSPS int
 }
 
 // UploadReport does the following:
@@ -32,7 +47,75 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		return errors.Wrap(err, "uploading tests for report")
 	}
-	return errors.Wrap(uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.ClientConn), opts.Report, opts.Report.Tests, opts.DryRun), "uploading tests for report")
+	if opts.SendToCedar {
+		if err := uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.CedarClientConn), opts.Report, opts.Report.Tests, opts.DryRun); err != nil {
+			return errors.Wrap(err, "uploading metrics for report")
+		}
+	}
+	if !opts.DryRun && opts.SendRatioSPS > 0 {
+		// This is a random number generator that is used to determine if the report should be uploaded to the new SPS endpoint.
+		// We're using a random number generator that will be set through a config value.
+		randomNumber := rand.Intn(opts.SendRatioSPS)
+		if randomNumber != 0 {
+			return nil
+		}
+		if opts.HTTPClient == nil {
+			opts.HTTPClient = utility.GetHTTPClient()
+			defer utility.PutHTTPClient(opts.HTTPClient)
+		}
+		if err := uploadTestsToSPS(ctx, opts.Report, opts.HTTPClient, opts.SPSURL); err != nil {
+			if opts.SendToCedar {
+				// We'll investigate any errors using Splunk. The data is already in Cedar, so we don't need to worry about it.
+				grip.Debug(grip.WrapErrorTimeMessagef(err, "Failed to upload report to SPS. Task_id: %s", opts.Report.TaskID))
+			} else {
+				// Cedar is turned off, so we need to investigate why we're not able to send data.
+				return errors.Wrap(err, "uploading metrics for report to SPS")
+			}
+		}
+	}
+	return nil
+}
+
+func uploadTestsToSPS(ctx context.Context, report *poplar.Report, client *http.Client, spsURL string) error {
+	taskInformation := &internal.TaskInformation{
+		Project:   report.Project,
+		Version:   report.Version,
+		Variant:   report.Variant,
+		Order:     report.Order,
+		TaskName:  report.TaskName,
+		TaskId:    report.TaskID,
+		Execution: report.Execution,
+		Mainline:  report.Mainline,
+	}
+	perfResults := internal.GatherPerfResults(report)
+	requestBody := &internal.SubmitPerfResultRequest{
+		Id:      *taskInformation,
+		Results: perfResults,
+	}
+	marshalledBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return errors.Wrap(err, "marshalling request body")
+	}
+	bodyReader := bytes.NewReader(marshalledBody)
+	requestURL := spsURL + "/raw_perf_results"
+	request, err := http.NewRequestWithContext(ctx, "POST", requestURL, bodyReader)
+	if err != nil {
+		return errors.Wrap(err, "creating request")
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		return errors.Wrap(err, "sending request")
+	}
+	if response.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(response.Body)
+		if err == nil {
+			return errors.Errorf("unexpected status code: %d: %s", response.StatusCode, body)
+		} else {
+			return errors.Wrapf(err, "unexpected status code: %d", response.StatusCode)
+		}
+
+	}
+	return nil
 }
 
 func (opts *UploadReportOptions) convertAndUploadArtifacts(ctx context.Context) error {
