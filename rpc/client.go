@@ -57,6 +57,7 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 		// We're using a random number generator that will be set through a config value.
 		randomNumber := rand.Intn(opts.SendRatioSPS)
 		if randomNumber != 0 {
+			grip.Debugf("Random number is %d and Send Ratio to SPS is %d, so not sending the report to SPS", randomNumber, opts.SendRatioSPS)
 			return nil
 		}
 		if opts.HTTPClient == nil {
@@ -72,6 +73,8 @@ func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 				return errors.Wrap(err, "uploading metrics for report to SPS")
 			}
 		}
+	} else {
+		grip.Debugf("Send Ratio to SPS is %d and dry-run is %t, so not sending the report to SPS", opts.SendRatioSPS, opts.DryRun)
 	}
 	return nil
 }
