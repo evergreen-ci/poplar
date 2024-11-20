@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"math/rand"
 	"net/http"
 	"runtime"
 	"sync"
@@ -18,7 +17,6 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
-	"google.golang.org/grpc"
 )
 
 // UploadReportOptions contains all the required options for uploading a report
@@ -26,51 +24,26 @@ import (
 
 type UploadReportOptions struct {
 	Report          *poplar.Report
-	CedarClientConn *grpc.ClientConn
 	HTTPClient      *http.Client
 	SPSURL          string
 	SerializeUpload bool
 	DryRun          bool
-
-	// SendToCedar specifies whether to send the report to Cedar.
-	SendToCedar bool
-	// SendRatioSPS specifies the probability of sending the report to SPS.
-	// If set to is 1, then the report is always sent to SPS.
-	SendRatioSPS int
 }
 
 // UploadReport does the following:
 // 1. Ingest the report.json.
-// 2. Send all artifact files to the user-specified buckets using user-specified keys.
-// 3. Send the metrics metadata and pre-calculated summaries to Cedar over gRPC using the Cedar creds.
+// 2. Upload the report to SPS over a REST endpoint.
 func UploadReport(ctx context.Context, opts UploadReportOptions) error {
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		return errors.Wrap(err, "uploading tests for report")
 	}
-	if opts.SendToCedar {
-		if err := uploadTests(ctx, gopb.NewCedarPerformanceMetricsClient(opts.CedarClientConn), opts.Report, opts.Report.Tests, opts.DryRun); err != nil {
-			return errors.Wrap(err, "uploading metrics for report")
-		}
-	}
-	if !opts.DryRun && opts.SendRatioSPS > 0 {
-		// This is a random number generator that is used to determine if the report should be uploaded to the new SPS endpoint.
-		// We're using a random number generator that will be set through a config value.
-		randomNumber := rand.Intn(opts.SendRatioSPS)
-		if randomNumber != 0 {
-			return nil
-		}
+	if !opts.DryRun {
 		if opts.HTTPClient == nil {
 			opts.HTTPClient = utility.GetHTTPClient()
 			defer utility.PutHTTPClient(opts.HTTPClient)
 		}
 		if err := uploadTestsToSPS(ctx, opts.Report, opts.HTTPClient, opts.SPSURL); err != nil {
-			if opts.SendToCedar {
-				// We'll investigate any errors using Splunk. The data is already in Cedar, so we don't need to worry about it.
-				grip.Debug(grip.WrapErrorTimeMessagef(err, "Failed to upload report to SPS. Task_id: %s", opts.Report.TaskID))
-			} else {
-				// Cedar is turned off, so we need to investigate why we're not able to send data.
-				return errors.Wrap(err, "uploading metrics for report to SPS")
-			}
+			return errors.Wrap(err, "uploading metrics for report to SPS")
 		}
 	}
 	return nil
