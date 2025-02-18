@@ -239,6 +239,7 @@ github.com/mattn/go-xmpp v0.0.0-20161121012536-f4550b539938/go.mod h1:Cs5mF0OsrR
 github.com/mattn/go-xmpp v0.0.0-20210723025538-3871461df959 h1:heUerLk4jOhweir4OqSGDUZueo9dRRtBcglPB44XRYY=
 github.com/mattn/go-xmpp v0.0.0-20210723025538-3871461df959/go.mod h1:Cs5mF0OsrRRmhkyOod//ldNPOwJsrBvJ+1WRspv0xoc=
 github.com/mitchellh/go-homedir v1.1.0 h1:lukF9ziXFxDFPkA1vsr5zpc1XuPDn/wFntq5mG+4E0Y=
+github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
 github.com/mongodb/ftdc v0.0.0-20220401165013-13e4af55e809 h1:CQVEigRr2M/OFIPn+wQWerSadMioMY1cLp22yZX+Ygk=
 github.com/mongodb/ftdc v0.0.0-20220401165013-13e4af55e809/go.mod h1:zz0HHFUU4/TOxl9TW4P9t3y3Ivx+sTWS2nwnhuYYRdw=
 github.com/mongodb/grip v0.0.0-20211018154934-e661a71929d5/go.mod h1:g0r93iHSTLD50bDT7vNj+z+Y3nKz9o/tQXtB9esq2tk=
