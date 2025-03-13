@@ -108,7 +108,7 @@ func (a *TestArtifact) Upload(ctx context.Context, conf BucketConfiguration, dry
 		DryRun:      dryRun,
 	}
 	if (conf.APIKey != "" && conf.APISecret != "") || conf.APIToken != "" {
-		opts.Credentials = pail.CreateAWSCredentials(conf.APIKey, conf.APISecret, conf.APIToken)
+		opts.Credentials = pail.CreateAWSStaticCredentials(conf.APIKey, conf.APISecret, conf.APIToken)
 	}
 	client := utility.GetHTTPClient()
 	defer utility.PutHTTPClient(client)
