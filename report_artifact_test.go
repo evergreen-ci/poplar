@@ -318,7 +318,7 @@ func TestUpload(t *testing.T) {
 						Region: test.bucketConf.Region,
 					}
 					if (test.bucketConf.APIKey != "" && test.bucketConf.APISecret != "") || test.bucketConf.APIToken != "" {
-						opts.Credentials = pail.CreateAWSCredentials(
+						opts.Credentials = pail.CreateAWSStaticCredentials(
 							test.bucketConf.APIKey,
 							test.bucketConf.APISecret,
 							test.bucketConf.APIToken,
