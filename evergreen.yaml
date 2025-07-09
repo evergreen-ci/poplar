@@ -108,6 +108,9 @@ tasks:
     name: test-poplar
   - <<: *run-build
     tags: ["test"]
+    name: test-rpc
+  - <<: *run-build
+    tags: ["test"]
     name: test-rpc-internal
 
 #######################################
