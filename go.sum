@@ -115,8 +115,6 @@ github.com/evergreen-ci/birch v0.0.0-20250224221624-64f481f4b888 h1:ypl1JbRMZS5q
 github.com/evergreen-ci/birch v0.0.0-20250224221624-64f481f4b888/go.mod h1:vcEVfn330vgy8Vk6VpE9t51KD4oJhfw2e2zy85KqYAI=
 github.com/evergreen-ci/gimlet v0.0.0-20240822210219-7b6025d55663 h1:rVGIGajXPSxDRLgMqG0UCGpxpZ3OaR7WZk8sFS053dE=
 github.com/evergreen-ci/gimlet v0.0.0-20240822210219-7b6025d55663/go.mod h1:tPzvFSKtIXOC64lkf91wk1XlwLVqgjyY0AvodJpWcck=
-github.com/evergreen-ci/juniper v0.0.0-20220118233332-0813edc78908 h1:k7f+q2yaOdv+SNSV2iHhqdBIxA8Yk78CLGypk8d+efI=
-github.com/evergreen-ci/juniper v0.0.0-20220118233332-0813edc78908/go.mod h1:LewZWRe1jV5XJhNksoB0rpvlwsg+D6M3yvzIFJZ8OJs=
 github.com/evergreen-ci/negroni v1.0.1-0.20211028183800-67b6d7c2c035 h1:oVU/ni/sRq+GAogUMLa7LBGtvVHMVLbisuytxBC5KaY=
 github.com/evergreen-ci/negroni v1.0.1-0.20211028183800-67b6d7c2c035/go.mod h1:pvK7NM0ZC+sfTLuIiJN4BgM1S9S5Oo79PJReAFFph18=
 github.com/evergreen-ci/pail v0.0.0-20250313154453-319668d02e83 h1:HQLCiJWVVvF3kEA4K8dXCfPpo9hSVPQmUq+R1QTkhhU=
