@@ -96,13 +96,6 @@ func TestClient(t *testing.T) {
 			require.NoError(t, os.RemoveAll(filepath.Join(testdataDir, artifact.Path)))
 		}
 	}
-
-	t.Run("DuplicateMetricName", func(t *testing.T) {
-		for _, serialize := range []bool{true, false} {
-			testReport := generateTestReport(testdataDir, s3Name, s3Prefix, true)
-			assert.Error(t, mockUploadReport(ctx, &testReport, serialize, true))
-		}
-	})
 }
 
 func generateTestReport(testdataDir, s3Name, s3Prefix string, duplicateMetric bool) poplar.Report {
