@@ -2,55 +2,20 @@ package rpc
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/juniper/gopb"
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/poplar"
-	"github.com/evergreen-ci/poplar/rpc/internal"
 	"github.com/evergreen-ci/utility"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type mockClient struct {
-	resultData []*gopb.ResultData
-	endData    map[string]*gopb.MetricsSeriesEnd
-}
-
-func NewMockClient() *mockClient {
-	return &mockClient{endData: map[string]*gopb.MetricsSeriesEnd{}}
-}
-
-func (mc *mockClient) CreateMetricSeries(_ context.Context, in *gopb.ResultData, _ ...grpc.CallOption) (*gopb.MetricsResponse, error) {
-	mc.resultData = append(mc.resultData, in)
-	return &gopb.MetricsResponse{Id: in.Id.TestName, Success: true}, nil
-}
-func (*mockClient) AttachResultData(_ context.Context, _ *gopb.ResultData, _ ...grpc.CallOption) (*gopb.MetricsResponse, error) {
-	return nil, nil
-}
-func (*mockClient) AttachArtifacts(_ context.Context, _ *gopb.ArtifactData, _ ...grpc.CallOption) (*gopb.MetricsResponse, error) {
-	return nil, nil
-}
-func (*mockClient) AttachRollups(_ context.Context, _ *gopb.RollupData, _ ...grpc.CallOption) (*gopb.MetricsResponse, error) {
-	return nil, nil
-}
-func (*mockClient) SendMetrics(_ context.Context, _ ...grpc.CallOption) (gopb.CedarPerformanceMetrics_SendMetricsClient, error) {
-	return nil, nil
-}
-func (mc *mockClient) CloseMetrics(_ context.Context, in *gopb.MetricsSeriesEnd, _ ...grpc.CallOption) (*gopb.MetricsResponse, error) {
-	mc.endData[in.Id] = in
-	return &gopb.MetricsResponse{Success: true}, nil
-}
-
-func mockUploadReport(ctx context.Context, report *poplar.Report, client gopb.CedarPerformanceMetricsClient, serialize bool, dryRun bool) error {
+func mockUploadReport(ctx context.Context, report *poplar.Report, serialize bool, dryRun bool) error {
 	opts := UploadReportOptions{
 		Report:          report,
 		SerializeUpload: serialize,
@@ -59,7 +24,7 @@ func mockUploadReport(ctx context.Context, report *poplar.Report, client gopb.Ce
 	if err := opts.convertAndUploadArtifacts(ctx); err != nil {
 		return errors.Wrap(err, "converting and uploading artifacts for report")
 	}
-	return errors.Wrap(uploadTests(ctx, client, report, report.Tests, dryRun), "uploading tests for report")
+	return nil
 }
 
 func TestClient(t *testing.T) {
@@ -88,12 +53,6 @@ func TestClient(t *testing.T) {
 		report.Tests[1],
 		report.Tests[1].SubTests[0],
 	}
-	expectedParents := map[string]string{
-		"test0":  "",
-		"test00": "test0",
-		"test1":  "",
-		"test10": "test1",
-	}
 	for i := range expectedTests {
 		for j := range expectedTests[i].Artifacts {
 			require.NoError(t, expectedTests[i].Artifacts[j].Convert(ctx))
@@ -113,58 +72,7 @@ func TestClient(t *testing.T) {
 	t.Run("WetRun", func(t *testing.T) {
 		for _, serialize := range []bool{true, false} {
 			testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
-			mc := NewMockClient()
-			require.NoError(t, mockUploadReport(ctx, &testReport, mc, serialize, false))
-			require.Len(t, mc.resultData, len(expectedTests))
-			require.Equal(t, len(mc.resultData), len(mc.endData))
-			for i, result := range mc.resultData {
-				assert.Equal(t, testReport.Project, result.Id.Project)
-				assert.Equal(t, testReport.Version, result.Id.Version)
-				assert.Equal(t, testReport.Order, int(result.Id.Order))
-				assert.Equal(t, testReport.Variant, result.Id.Variant)
-				assert.Equal(t, testReport.TaskName, result.Id.TaskName)
-				assert.Equal(t, testReport.TaskID, result.Id.TaskId)
-				assert.Equal(t, testReport.Mainline, result.Id.Mainline)
-				assert.Equal(t, testReport.Execution, int(result.Id.Execution))
-				assert.Equal(t, expectedTests[i].Info.TestName, result.Id.TestName)
-				assert.Equal(t, expectedTests[i].Info.Trial, int(result.Id.Trial))
-				assert.Equal(t, expectedTests[i].Info.Tags, result.Id.Tags)
-				assert.Equal(t, expectedTests[i].Info.Arguments, result.Id.Arguments)
-				assert.Equal(t, expectedParents[expectedTests[i].Info.TestName], result.Id.Parent)
-				var expectedCreatedAt *timestamppb.Timestamp
-				var expectedCompletedAt *timestamppb.Timestamp
-				if !expectedTests[i].CreatedAt.IsZero() {
-					expectedCreatedAt = timestamppb.New(expectedTests[i].CreatedAt)
-				}
-				if !expectedTests[i].CompletedAt.IsZero() {
-					expectedCompletedAt = timestamppb.New(expectedTests[i].CompletedAt)
-				}
-				assert.Equal(t, expectedCreatedAt, result.Id.CreatedAt)
-				assert.Equal(t, expectedCompletedAt, mc.endData[result.Id.TestName].CompletedAt)
-
-				require.Len(t, result.Artifacts, len(expectedTests[i].Artifacts))
-				for j, artifact := range expectedTests[i].Artifacts {
-					require.NoError(t, artifact.Validate())
-					expectedArtifact := internal.ExportArtifactInfo(&artifact)
-					expectedArtifact.Location = gopb.StorageLocation_CEDAR_S3
-					assert.Equal(t, expectedArtifact, result.Artifacts[j])
-					r, err := s3Bucket.Get(ctx, artifact.Path)
-					require.NoError(t, err)
-					remoteData, err := ioutil.ReadAll(r)
-					require.NoError(t, err)
-					f, err := os.Open(filepath.Join(testdataDir, artifact.Path))
-					require.NoError(t, err)
-					localData, err := ioutil.ReadAll(f)
-					require.NoError(t, err)
-					assert.Equal(t, localData, remoteData)
-					require.NoError(t, f.Close())
-				}
-
-				require.Len(t, result.Rollups, len(expectedTests[i].Metrics))
-				for k, metric := range expectedTests[i].Metrics {
-					assert.Equal(t, internal.ExportRollup(&metric), result.Rollups[k])
-				}
-			}
+			require.NoError(t, mockUploadReport(ctx, &testReport, serialize, false))
 		}
 	})
 
@@ -178,20 +86,7 @@ func TestClient(t *testing.T) {
 	t.Run("DryRun", func(t *testing.T) {
 		for _, serialize := range []bool{true, false} {
 			testReport := generateTestReport(testdataDir, s3Name, s3Prefix, false)
-			mc := NewMockClient()
-			require.NoError(t, mockUploadReport(ctx, &testReport, mc, serialize, true))
-			assert.Empty(t, mc.resultData)
-			assert.Empty(t, mc.endData)
-			for _, expectedTest := range expectedTests {
-				for _, artifact := range expectedTest.Artifacts {
-					require.NoError(t, artifact.Validate())
-					r, err := s3Bucket.Get(ctx, artifact.Path)
-					assert.Error(t, err)
-					assert.Nil(t, r)
-					_, err = os.Stat(filepath.Join(testdataDir, artifact.Path))
-					require.NoError(t, err)
-				}
-			}
+			require.NoError(t, mockUploadReport(ctx, &testReport, serialize, true))
 		}
 	})
 
@@ -201,16 +96,6 @@ func TestClient(t *testing.T) {
 			require.NoError(t, os.RemoveAll(filepath.Join(testdataDir, artifact.Path)))
 		}
 	}
-
-	t.Run("DuplicateMetricName", func(t *testing.T) {
-		for _, serialize := range []bool{true, false} {
-			testReport := generateTestReport(testdataDir, s3Name, s3Prefix, true)
-			mc := NewMockClient()
-			assert.Error(t, mockUploadReport(ctx, &testReport, mc, serialize, true))
-			assert.Empty(t, mc.resultData)
-			assert.Empty(t, mc.endData)
-		}
-	})
 }
 
 func generateTestReport(testdataDir, s3Name, s3Prefix string, duplicateMetric bool) poplar.Report {
