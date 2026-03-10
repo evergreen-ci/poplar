@@ -79,7 +79,7 @@ func readFile(fn string, out interface{}) error {
 		return errors.Wrapf(err, "statting file '%s'", fn)
 	}
 	if stat.IsDir() {
-		return errors.Errorf("file '%s' does not exist", fn)
+		return errors.Errorf("'%s' is a directory", fn)
 	}
 
 	unmarshal := getUnmarshaler(fn)
