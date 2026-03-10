@@ -71,7 +71,14 @@ func LoadTests(fn string) (*Report, error) {
 }
 
 func readFile(fn string, out interface{}) error {
-	if stat, err := os.Stat(fn); os.IsNotExist(err) || stat.IsDir() {
+	stat, err := os.Stat(fn)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return errors.Errorf("file '%s' does not exist", fn)
+		}
+		return errors.Wrapf(err, "statting file '%s'", fn)
+	}
+	if stat.IsDir() {
 		return errors.Errorf("file '%s' does not exist", fn)
 	}
 
