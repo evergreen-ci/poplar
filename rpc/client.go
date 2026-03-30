@@ -157,13 +157,13 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 				continue
 			}
 
-			grip.Info(message.Fields{
-				"op":     "uploading artifact",
-				"path":   test.Artifacts[j].Path,
-				"bucket": test.Artifacts[j].Bucket,
-				"prefix": test.Artifacts[j].Prefix,
-				"file":   test.Artifacts[j].LocalFile,
-			})
+		grip.Info(ctx, message.Fields{
+			"op":     "uploading artifact",
+			"path":   test.Artifacts[j].Path,
+			"bucket": test.Artifacts[j].Bucket,
+			"prefix": test.Artifacts[j].Prefix,
+			"file":   test.Artifacts[j].LocalFile,
+		})
 			catcher.Wrapf(test.Artifacts[j].Upload(ctx, opts.Report.BucketConf, opts.DryRun), "uploading artifact")
 		}
 	}
