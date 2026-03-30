@@ -47,7 +47,7 @@ func (s *collectorService) CloseCollector(ctx context.Context, id *PoplarID) (*P
 	}
 	catcher.Add(s.registry.Close(id.Name))
 
-	grip.Error(message.WrapError(catcher.Resolve(), message.Fields{
+	grip.Error(ctx, message.WrapError(catcher.Resolve(), message.Fields{
 		"message":  "closing recorder",
 		"recorder": id.Name,
 	}))

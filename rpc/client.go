@@ -157,7 +157,7 @@ func (opts *UploadReportOptions) artifactConsumer(ctx context.Context, testChan 
 				continue
 			}
 
-			grip.Info(message.Fields{
+			grip.Info(ctx, message.Fields{
 				"op":     "uploading artifact",
 				"path":   test.Artifacts[j].Path,
 				"bucket": test.Artifacts[j].Bucket,

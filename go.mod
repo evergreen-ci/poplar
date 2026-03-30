@@ -3,12 +3,12 @@ module github.com/evergreen-ci/poplar
 go 1.24.0
 
 require (
-	github.com/evergreen-ci/aviation v0.0.0-20250224221603-9ff1979a684a
+	github.com/evergreen-ci/aviation v0.0.0-20260326191247-419265529eba
 	github.com/evergreen-ci/birch v0.0.0-20250224221624-64f481f4b888
-	github.com/evergreen-ci/pail v0.0.0-20251205190417-84f1b6e2eef6
+	github.com/evergreen-ci/pail v0.0.0-20260326185823-a670fac5e872
 	github.com/evergreen-ci/utility v0.0.0-20251203163234-8a1c0ea8b717
 	github.com/mongodb/ftdc v0.0.0-20251208183831-018e343a1aac
-	github.com/mongodb/grip v0.0.0-20251203205830-b5c5c666ab94
+	github.com/mongodb/grip v0.0.0-20260325175240-dee15316ed15
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.11.1
 	go.mongodb.org/mongo-driver v1.17.6
@@ -44,7 +44,7 @@ require (
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dghubble/oauth1 v0.7.2 // indirect
-	github.com/evergreen-ci/gimlet v0.0.0-20251205151908-163517996b82 // indirect
+	github.com/evergreen-ci/gimlet v0.0.0-20260325201542-0eb4bfb95c82 // indirect
 	github.com/evergreen-ci/negroni v1.0.1-0.20211028183800-67b6d7c2c035 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
